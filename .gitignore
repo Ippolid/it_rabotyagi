@@ -1,0 +1,16 @@
+.idea
+/bin/
+/grpc/bin/
+service_linux
+/deploy/secret.env
+/cmd/grpc_server/main1.txt
+/deploy/.env
+/.env
+/coverage.out
+generate.go
+/deploy/server.crt
+/deploy/server.key
+/deploy/server_key.pem
+/deploy/server_cert.pem
+/deploy/certificate.conf
+/deploy/logs/
