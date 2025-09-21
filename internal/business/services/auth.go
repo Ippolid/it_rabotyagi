@@ -84,7 +84,7 @@ func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*m
 	}
 
 	// 2. Получение пользователя из БД
-	fmt.Println(claims)
+	log.Printf("claims: %+v", claims)
 	user, err := a.userRepo.GetByTelegramID(ctx, claims.TelegramID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user for token refresh: %w", err)
