@@ -146,9 +146,3 @@ func (a *authService) UpdateProfile(ctx context.Context, userID int64, req model
 	return user, nil
 }
 
-func getStringValue(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
