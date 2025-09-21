@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"itpath/internal/business"
 	"itpath/internal/business/models"
@@ -16,21 +17,8 @@ type authService struct {
 	jwtManager      *jwt.TokenManager
 }
 
-func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*models.AuthResult, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *authService) Logout(ctx context.Context, userID int64) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func NewAuthService(
-	userRepo data.UserRepository,
-	telegramService business.TelegramService,
-	jwtManager *jwt.TokenManager,
-) business.AuthService {
+// NewAuthService создает новый экземпляр сервиса аутентификации.
+func NewAuthService(userRepo data.UserRepository, telegramService business.TelegramService, jwtManager *jwt.TokenManager) business.AuthService {
 	return &authService{
 		userRepo:        userRepo,
 		telegramService: telegramService,
@@ -38,55 +26,42 @@ func NewAuthService(
 	}
 }
 
-func (s *authService) AuthenticateWithTelegram(ctx context.Context, data models.TelegramAuthData) (*models.AuthResult, error) {
-	// 1. Валидируем данные от Telegram
-	if err := s.telegramService.ValidateAuthData(data); err != nil {
-		return nil, fmt.Errorf("telegram validation failed: %w", err)
+func (a *authService) AuthenticateWithTelegram(ctx context.Context, data models.TelegramAuthData) (*models.AuthResult, error) {
+	// 1. Валидация данных от Telegram
+	if err := a.telegramService.ValidateAuthData(data); err != nil {
+		return nil, fmt.Errorf("telegram data validation failed: %w", err)
 	}
 
-	// 2. Ищем существующего пользователя
-	userEntity, err := s.userRepo.GetByTelegramID(ctx, data.ID)
+	// 2. Поиск пользователя или создание нового
+	user, err := a.userRepo.GetByTelegramID(ctx, data.ID)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %w", err)
-	}
-
-	// 3. Создаем или обновляем пользователя
-	if userEntity == nil {
-		// Создаем нового пользователя
-		createReq := entities.CreateUserRequest{
-			TelegramID:   data.ID,
-			Username:     data.Username,
-			FirstName:    data.FirstName,
-			LastName:     data.LastName,
-			PhotoURL:     data.PhotoURL,
-			Role:         entities.RoleUser,
-			Subscription: entities.SubscriptionTrial,
-		}
-
-		userEntity, err = s.userRepo.Create(ctx, createReq)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create user: %w", err)
-		}
-	} else {
-		// Обновляем данные существующего пользователя
-		userEntity, err = s.userRepo.UpdateTelegramData(ctx, data.ID, data.Username, data.FirstName, data.LastName, data.PhotoURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update user: %w", err)
+		// Если пользователь не найден, создаем его
+		if errors.Is(err, entities.ErrUserNotFound) {
+			createReq := entities.CreateUserRequest{
+				TelegramID: data.ID,
+				FirstName:  data.FirstName,
+				LastName:   &data.LastName,
+				Username:   &data.Username,
+				PhotoURL:   &data.PhotoURL,
+			}
+			user, err = a.userRepo.CreateUser(ctx, createReq)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create user: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get user by telegram id: %w", err)
 		}
 	}
 
-	// 4. Конвертируем в бизнес-модель
-	user := models.FromEntity(userEntity)
+	// 3. Генерация токенов
+	tokenData := jwt.UserTokenData{
+		UserID:       user.ID,
+		TelegramID:   user.TelegramID,
+		Role:         user.Role,
+		Subscription: user.Subscription,
+	}
 
-	// 5. Генерируем токены
-	accessToken, refreshToken, err := s.jwtManager.GenerateTokens(
-		user.ID,
-		user.TelegramID,
-		getStringValue(user.Username),
-		user.FirstName,
-		string(user.Role),
-		string(user.Subscription),
-	)
+	accessToken, refreshToken, err := a.jwtManager.GenerateTokens(tokenData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tokens: %w", err)
 	}
@@ -94,116 +69,81 @@ func (s *authService) AuthenticateWithTelegram(ctx context.Context, data models.
 	return &models.AuthResult{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User:         user.ToPublic(),
-		ExpiresIn:    15 * 60, // 15 минут
 	}, nil
 }
 
-func (s *authService) GetUserByID(ctx context.Context, userID int64) (*models.User, error) {
-	userEntity, err := s.userRepo.GetByID(ctx, userID)
+func (a *authService) RefreshToken(ctx context.Context, refreshToken string) (*models.AuthResult, error) {
+	// 1. Валидация refresh токена
+	claims, err := a.jwtManager.ValidateToken(refreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, fmt.Errorf("invalid refresh token: %w", err)
 	}
 
-	if userEntity == nil {
-		return nil, fmt.Errorf("user not found")
+	if claims.TokenType != "refresh" {
+		return nil, fmt.Errorf("invalid token type, expected refresh")
 	}
 
-	return models.FromEntity(userEntity), nil
+	// 2. Получение пользователя из БД
+	fmt.Println(claims)
+	user, err := a.userRepo.GetByTelegramID(ctx, claims.TelegramID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user for token refresh: %w", err)
+	}
+
+	// 3. Генерация новой пары токенов
+	tokenData := jwt.UserTokenData{
+		UserID:       user.ID,
+		TelegramID:   user.TelegramID,
+		Role:         user.Role,
+		Subscription: user.Subscription,
+	}
+
+	newAccessToken, newRefreshToken, err := a.jwtManager.GenerateTokens(tokenData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate new tokens: %w", err)
+	}
+
+	return &models.AuthResult{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+	}, nil
 }
 
-func (s *authService) UpdateProfile(ctx context.Context, userID int64, req models.UpdateProfileRequest) (*models.User, error) {
-	// Проверяем существование пользователя
-	existingUser, err := s.userRepo.GetByID(ctx, userID)
+func (a *authService) Logout(ctx context.Context, userID int64) error {
+	// Для JWT-based аутентификации, выход обычно обрабатывается на клиенте
+	// путем удаления токенов. Если требуется принудительный отзыв,
+	// необходимо реализовать механизм черного списка токенов (например, в Redis).
+	return nil
+}
+
+func (a *authService) GetUserByID(ctx context.Context, userID int64) (*models.User, error) {
+	userEntity, err := a.userRepo.GetByTelegramID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-	if existingUser == nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, fmt.Errorf("failed to get user by id: %w", err)
 	}
 
-	// Валидируем данные
-	if err := s.validateUpdateRequest(ctx, userID, req); err != nil {
-		return nil, err
-	}
+	// Конвертация из entity в business model
+	// Конвертация из entity в business model
+	user := models.FromEntity(userEntity)
+	return user, nil
+}
 
-	// Конвертируем в запрос для репозитория
+func (a *authService) UpdateProfile(ctx context.Context, userID int64, req models.UpdateProfileRequest) (*models.User, error) {
 	updateReq := entities.UpdateUserRequest{
 		Username:  req.Username,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Email:     req.Email,
+		PhotoURL:  req.PhotoURL,
 	}
 
-	// Обновляем пользователя
-	userEntity, err := s.userRepo.Update(ctx, userID, updateReq)
+	updatedUserEntity, err := a.userRepo.Update(ctx, userID, updateReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update profile: %w", err)
+		return nil, fmt.Errorf("failed to update user profile: %w", err)
 	}
 
-	return models.FromEntity(userEntity), nil
-}
+	user := models.FromEntity(updatedUserEntity)
 
-func (s *authService) ValidateAccess(ctx context.Context, userID int64, requiredRole string) (bool, error) {
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	if user == nil {
-		return false, nil
-	}
-
-	// Менторы имеют доступ ко всем функциям пользователей
-	if requiredRole == "user" {
-		return true, nil
-	}
-
-	return string(user.Role) == requiredRole, nil
-}
-
-func (s *authService) ValidateSubscription(ctx context.Context, userID int64, requiredSubscription string) (bool, error) {
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	if user == nil {
-		return false, nil
-	}
-
-	// Pro подписка включает все возможности trial
-	if requiredSubscription == "trial" {
-		return true, nil
-	}
-
-	return string(user.Subscription) == requiredSubscription, nil
-}
-
-func (s *authService) validateUpdateRequest(ctx context.Context, userID int64, req models.UpdateProfileRequest) error {
-	// Проверка email на уникальность
-	if req.Email != nil && *req.Email != "" {
-		exists, err := s.userRepo.EmailExists(ctx, *req.Email, userID)
-		if err != nil {
-			return fmt.Errorf("failed to check email: %w", err)
-		}
-		if exists {
-			return fmt.Errorf("email already exists")
-		}
-	}
-
-	// Проверка username на уникальность
-	if req.Username != nil && *req.Username != "" {
-		exists, err := s.userRepo.UsernameExists(ctx, *req.Username, userID)
-		if err != nil {
-			return fmt.Errorf("failed to check username: %w", err)
-		}
-		if exists {
-			return fmt.Errorf("username already exists")
-		}
-	}
-
-	return nil
+	return user, nil
 }
 
 func getStringValue(s *string) string {

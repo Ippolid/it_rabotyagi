@@ -15,23 +15,19 @@ func SetupRoutes(
 	r := gin.Default()
 
 	// Global middleware
-	//r.Use(middleware.CORS())
-	//r.Use(middleware.Logger())
+	// r.Use(middleware.CORS())
 	r.Use(gin.Recovery())
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(authService)
-	//healthHandler := handlers.NewHealthHandler()
 
 	// API routes
+	r.Static("/web", "./web")
 	api := r.Group("/api/v1")
 
 	// Public routes
 	{
-		// Health check
-		//api.GET("/health", healthHandler.Health)
-
 		// Authentication
 		auth := api.Group("/auth")
 		auth.POST("/telegram", authHandler.TelegramLogin)
@@ -42,19 +38,19 @@ func SetupRoutes(
 	protected := api.Group("")
 	protected.Use(middleware.Auth(jwtManager))
 	{
+		// Auth endpoints
+		protected.POST("/auth/logout", authHandler.Logout)
+
 		// User endpoints
 		protected.GET("/me", userHandler.GetMe)
 		protected.PUT("/profile", userHandler.UpdateProfile)
-
-		// Auth endpoints
-		protected.POST("/auth/logout", authHandler.Logout)
 	}
 
 	// Role-based routes
 	mentorOnly := protected.Group("")
 	mentorOnly.Use(middleware.RequireRole("mentor"))
 	{
-		// Mentor-only endpoints
+		// Mentor-only endpoints can be added here
 	}
 
 	return r

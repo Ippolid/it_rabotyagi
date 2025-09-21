@@ -8,6 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	userCtx = "user_id"
+)
+
 func Auth(jwtManager *jwt.TokenManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -31,12 +35,16 @@ func Auth(jwtManager *jwt.TokenManager) gin.HandlerFunc {
 			return
 		}
 
-		// Добавляем все данные пользователя в контекст
-		c.Set("user_id", claims.UserID)
+		// Проверяем, что это access токен
+		if claims.TokenType != "access" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token type"})
+			c.Abort()
+			return
+		}
+
+		// Добавляем данные из токена в контекст
+		c.Set(userCtx, claims.UserID)
 		c.Set("telegram_id", claims.TelegramID)
-		c.Set("username", claims.Username)
-		c.Set("first_name", claims.FirstName)
-		c.Set("last_name", claims.LastName)
 		c.Set("role", claims.Role)
 		c.Set("subscription", claims.Subscription)
 
@@ -54,7 +62,13 @@ func RequireRole(role string) gin.HandlerFunc {
 			return
 		}
 
-		if userRole.(string) != role && userRole.(string) != "mentor" {
+		// Ментор имеет доступ ко всему, к чему имеет доступ user
+		if role == "user" && (userRole.(string) == "user" || userRole.(string) == "mentor") {
+			c.Next()
+			return
+		}
+
+		if userRole.(string) != role {
 			c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 			c.Abort()
 			return
@@ -74,8 +88,8 @@ func RequireSubscription(subscription string) gin.HandlerFunc {
 			return
 		}
 
-		if subscription == "trial" {
-			// trial доступен всем
+		// Pro подписка включает все возможности trial
+		if subscription == "trial" && (userSub.(string) == "trial" || userSub.(string) == "pro") {
 			c.Next()
 			return
 		}

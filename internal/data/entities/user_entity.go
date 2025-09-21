@@ -2,6 +2,7 @@ package entities
 
 import (
 	"database/sql/driver"
+	"errors"
 	"time"
 )
 
@@ -18,6 +19,8 @@ const (
 	SubscriptionTrial SubscriptionType = "trial"
 	SubscriptionPro   SubscriptionType = "pro"
 )
+
+var ErrUserNotFound = errors.New("user not found")
 
 // Реализация driver.Valuer для ENUM'ов
 func (ur UserRole) Value() (driver.Value, error) {
@@ -36,7 +39,6 @@ type UserEntity struct {
 	FirstName    string           `db:"first_name"`
 	LastName     *string          `db:"last_name"`
 	PhotoURL     *string          `db:"photo_url"`
-	Email        *string          `db:"email"`
 	Role         UserRole         `db:"role"`
 	Subscription SubscriptionType `db:"subscription"`
 	CreatedAt    time.Time        `db:"created_at"`
@@ -45,13 +47,11 @@ type UserEntity struct {
 
 // CreateUserRequest - данные для создания пользователя
 type CreateUserRequest struct {
-	TelegramID   int64
-	Username     string
-	FirstName    string
-	LastName     string
-	PhotoURL     string
-	Role         UserRole
-	Subscription SubscriptionType
+	TelegramID int64
+	FirstName  string
+	LastName   *string // Может быть nil
+	Username   *string // Может быть nil
+	PhotoURL   *string // Может быть nil
 }
 
 // UpdateUserRequest - данные для обновления пользователя
@@ -60,5 +60,4 @@ type UpdateUserRequest struct {
 	FirstName *string
 	LastName  *string
 	PhotoURL  *string
-	Email     *string
 }

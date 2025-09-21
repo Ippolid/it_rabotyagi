@@ -1,6 +1,8 @@
 package dto
 
-import "itpath/internal/business/models"
+import (
+	"itpath/internal/business/models"
+)
 
 // TelegramAuthRequest - запрос авторизации через Telegram
 type TelegramAuthRequest struct {
@@ -26,7 +28,7 @@ type UpdateProfileRequest struct {
 	FirstName *string `json:"first_name,omitempty" binding:"omitempty,min=1,max=255"`
 	LastName  *string `json:"last_name,omitempty" binding:"omitempty,max=255"`
 	Username  *string `json:"username,omitempty" binding:"omitempty,min=3,max=50,alphanum"`
-	Email     *string `json:"email,omitempty" binding:"omitempty,email"`
+	PhotoURL  *string `json:"photo_url,omitempty" binding:"omitempty,url"`
 }
 
 // ToBusinessModel - конвертация в бизнес-модель
@@ -47,6 +49,19 @@ func (r *UpdateProfileRequest) ToBusinessModel() models.UpdateProfileRequest {
 		FirstName: r.FirstName,
 		LastName:  r.LastName,
 		Username:  r.Username,
-		Email:     r.Email,
+		PhotoURL:  r.PhotoURL,
+	}
+}
+
+// NewAuthResponse создает DTO ответа на основе бизнес-модели AuthResult.
+func NewAuthResponse(result *models.AuthResult) *AuthResponse {
+	if result == nil {
+		return nil
+	}
+	return &AuthResponse{
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
+		User:         result.User,
+		ExpiresIn:    result.ExpiresIn,
 	}
 }

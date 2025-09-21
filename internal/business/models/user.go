@@ -41,14 +41,16 @@ type AuthResult struct {
 }
 
 // TelegramAuthData - данные авторизации от Telegram
+// Поля соответствуют данным, которые возвращает виджет Telegram Login.
 type TelegramAuthData struct {
 	ID        int64  `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Username  string `json:"username"`
-	PhotoURL  string `json:"photo_url"`
 	AuthDate  int64  `json:"auth_date"`
+	FirstName string `json:"first_name"`
 	Hash      string `json:"hash"`
+	// Необязательные поля
+	LastName string `json:"last_name,omitempty"`
+	Username string `json:"username,omitempty"`
+	PhotoURL string `json:"photo_url,omitempty"`
 }
 
 // UpdateProfileRequest - запрос на обновление профиля
@@ -56,7 +58,7 @@ type UpdateProfileRequest struct {
 	FirstName *string `json:"first_name,omitempty"`
 	LastName  *string `json:"last_name,omitempty"`
 	Username  *string `json:"username,omitempty"`
-	Email     *string `json:"email,omitempty"`
+	PhotoURL  *string `json:"photo_url,omitempty"`
 }
 
 // Конвертация из Entity в Business Model
@@ -72,7 +74,6 @@ func FromEntity(entity *entities.UserEntity) *User {
 		FirstName:    entity.FirstName,
 		LastName:     entity.LastName,
 		PhotoURL:     entity.PhotoURL,
-		Email:        entity.Email,
 		Role:         entity.Role,
 		Subscription: entity.Subscription,
 		CreatedAt:    entity.CreatedAt,

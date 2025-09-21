@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"itpath/internal/business/services"
+	"itpath/internal/config"
+	"itpath/internal/data/database"
 	"itpath/internal/data/repositories"
 	"itpath/internal/pkg/jwt"
 	"itpath/internal/presentation/routes"
@@ -35,7 +37,10 @@ func Run() error {
 	userRepo := repositories.NewUserRepository(db)
 
 	// BUSINESS LAYER
-	jwtManager := jwt.NewManager(cfg.JWT.Secret)
+	jwtManager, err := jwt.NewTokenManager(cfg.JWT.Secret)
+	if err != nil {
+		return fmt.Errorf("failed to create jwt manager: %w", err)
+	}
 	telegramService := services.NewTelegramService(cfg.Telegram.BotToken)
 	authService := services.NewAuthService(userRepo, telegramService, jwtManager)
 

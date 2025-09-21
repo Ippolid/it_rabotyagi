@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"errors"
 	"itpath/internal/business"
+	"itpath/internal/data/entities"
 	"itpath/internal/pkg/response"
 	"itpath/internal/presentation/dto"
 	"net/http"
@@ -28,24 +30,19 @@ func (h *AuthHandler) TelegramLogin(c *gin.Context) {
 		return
 	}
 
-	// Конвертируем в бизнес-модель
 	authData := req.ToBusinessModel()
 
-	// Выполняем авторизацию
 	authResult, err := h.authService.AuthenticateWithTelegram(c.Request.Context(), authData)
 	if err != nil {
+		if errors.Is(err, entities.ErrUserNotFound) {
+			response.Error(c, http.StatusNotFound, "User not found", err)
+			return
+		}
 		response.Error(c, http.StatusUnauthorized, "Authentication failed", err)
 		return
 	}
 
-	// Конвертируем в DTO для ответа
-	authResponse := &dto.AuthResponse{
-		AccessToken:  authResult.AccessToken,
-		RefreshToken: authResult.RefreshToken,
-		User:         authResult.User,
-		ExpiresIn:    authResult.ExpiresIn,
-	}
-
+	authResponse := dto.NewAuthResponse(authResult)
 	response.Success(c, authResponse, "Successfully authenticated")
 }
 
@@ -62,30 +59,27 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 
 	authResult, err := h.authService.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
+		if errors.Is(err, entities.ErrUserNotFound) {
+			response.Error(c, http.StatusNotFound, "User for token not found", err)
+			return
+		}
 		response.Error(c, http.StatusUnauthorized, "Token refresh failed", err)
 		return
 	}
 
-	authResponse := &dto.AuthResponse{
-		AccessToken:  authResult.AccessToken,
-		RefreshToken: authResult.RefreshToken,
-		User:         authResult.User,
-		ExpiresIn:    authResult.ExpiresIn,
-	}
-
+	authResponse := dto.NewAuthResponse(authResult)
 	response.Success(c, authResponse, "Token refreshed successfully")
 }
 
 // POST /api/v1/auth/logout
 func (h *AuthHandler) Logout(c *gin.Context) {
-	userID, exists := c.Get("user_id")
+	userID, exists := c.Get("telegram_id")
 	if !exists {
 		response.Error(c, http.StatusUnauthorized, "User not authenticated", nil)
 		return
 	}
 
-	err := h.authService.Logout(c.Request.Context(), userID.(int64))
-	if err != nil {
+	if err := h.authService.Logout(c.Request.Context(), userID.(int64)); err != nil {
 		response.Error(c, http.StatusInternalServerError, "Logout failed", err)
 		return
 	}
