@@ -31,7 +31,6 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 	}
 	fmt.Println(userID, c)
 	user, err := h.authService.GetUserByID(c.Request.Context(), userID.(int64))
-	fmt.Println(user)
 	if err != nil {
 		if errors.Is(err, entities.ErrUserNotFound) {
 			response.Error(c, http.StatusNotFound, "User not found", err)
