@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Frontend</title>
+    <style>
+        body { font-family: sans-serif; padding: 2em; }
+        #response, #me-response {
+            margin-top: 1em;
+            padding: 1em;
+            border: 1px solid #ccc;
+            background-color: #f0f0f0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<h1>Telegram Auth Test</h1>
+
+<div id="telegram-login-container">
+    <script async src="https://telegram.org/js/telegram-widget.js?22"
+            data-telegram-login="itpath_bot"
+            data-size="large"
+            data-onauth="onTelegramAuth(user)"
+            data-request-access="write"></script>
+</div>
+
+<h3>Login Response:</h3>
+<pre id="response"></pre>
+
+<div id="protected-section" class="hidden">
+    <hr>
+    <h2>Test Protected Endpoint</h2>
+    <button id="get-me-btn">Get My Profile (/api/v1/me)</button>
+    <h3>Profile Response:</h3>
+    <pre id="me-response"></pre>
+</div>
+
+
+<script>
+    const responseEl = document.getElementById('response');
+    const meResponseEl = document.getElementById('me-response');
+    const protectedSection = document.getElementById('protected-section');
+    const getMeBtn = document.getElementById('get-me-btn');
+
+    // Эта функция вызывается виджетом Telegram после успешной авторизации
+    async function onTelegramAuth(user) {
+        responseEl.textContent = 'Sending auth data to server...';
+        try {
+            const res = await fetch('/api/v1/auth/telegram', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(user),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || 'Authentication failed');
+            }
+
+            responseEl.textContent = JSON.stringify(data, null, 2);
+
+            // Сохраняем токен для последующих запросов
+            localStorage.setItem('access_token', data.data.access_token);
+
+            // Показываем секцию для защищенных запросов
+            protectedSection.classList.remove('hidden');
+
+        } catch (error) {
+            responseEl.textContent = `Error: ${error.message}`;
+            console.error(error);
+        }
+    }
+
+    // Обработчик для кнопки "Get My Profile"
+    getMeBtn.addEventListener('click', async () => {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            meResponseEl.textContent = 'No access token found. Please log in first.';
+            return;
+        }
+
+        meResponseEl.textContent = 'Fetching profile...';
+
+        try {
+            const res = await fetch('/api/v1/me', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || 'Failed to fetch profile');
+            }
+
+            meResponseEl.textContent = JSON.stringify(data, null, 2);
+
+        } catch (error) {
+            meResponseEl.textContent = `Error: ${error.message}`;
+            console.error(error);
+        }
+    });
+</script>
+
+</body>
+</html>

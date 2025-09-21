@@ -1,0 +1,92 @@
+#volumes:
+#  postgres_volume:
+#
+#services:
+#  pg-local:
+#    image: postgres:14-alpine3.17
+#    environment:
+#      - POSTGRES_DB=${PG_DATABASE_NAME}
+#      - POSTGRES_USER=${PG_USER}
+#      - POSTGRES_PASSWORD=${PG_PASSWORD}
+#    ports:
+#      - "${PG_PORT}:5432"
+#    volumes:
+#      - postgres_volume:/var/lib/postgresql/data
+#
+#  migrator-local:
+#    build:
+#      context: ..
+#      dockerfile: deploy/migration.Dockerfile
+#    restart: on-failure
+#    environment:
+#      - DB_HOST=pg-local
+services:
+  # 1. Сервис базы данных PostgreSQL
+  pg-local:
+    image: postgres:14-alpine
+    container_name: itpath_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${PG_DATABASE_NAME}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+    ports:
+      - "${PG_PORT}:5432" # Пробрасывает порт БД на хост (например, 54321:5432)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - itpath-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DATABASE_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Сервис для миграций (если у вас есть migration.Dockerfile)
+  # Этот сервис запустится, применит миграции и остановится.
+  migrator-local:
+    build:
+      context: ..
+      dockerfile: deploy/migration.Dockerfile
+    container_name: itpath_migrator
+    depends_on:
+      pg-local:
+        condition: service_healthy
+    environment:
+      # Указываем хост БД для мигратора
+      - DB_HOST=pg-local
+      # Передаем остальные переменные для подключения к БД
+      - PG_DATABASE_NAME=${PG_DATABASE_NAME}
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+      - MIGRATION_DIR=${MIGRATION_DIR}
+    networks:
+      - itpath-network
+
+  # 3. Сервис основного приложения
+  app:
+    build:
+      context: .. # Контекст сборки - корневая папка проекта
+      dockerfile: deploy/Dockerfile # Путь к Dockerfile относительно контекста
+    container_name: itpath_app
+    restart: always
+    env_file:
+      - .env # Загружаем переменные окружения из .env файла
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}" # Пробрасывает порт приложения (например, 8080:8080)
+    depends_on:
+      pg-local:
+        condition: service_healthy
+      migrator-local:
+        condition: service_completed_successfully
+    networks:
+      - itpath-network
+
+# Определяем общую сеть для взаимодействия сервисов
+networks:
+  itpath-network:
+    driver: bridge
+
+# Определяем том для хранения данных PostgreSQL
+volumes:
+  postgres_data:
