@@ -9,6 +9,7 @@ import (
 	"itpath/internal/data"
 	"itpath/internal/data/entities"
 	"itpath/internal/pkg/jwt"
+	"log"
 )
 
 type authService struct {
@@ -145,4 +146,3 @@ func (a *authService) UpdateProfile(ctx context.Context, userID int64, req model
 
 	return user, nil
 }
-

@@ -23,7 +23,7 @@
 services:
   # 1. Сервис базы данных PostgreSQL
   pg-local:
-    image: postgres:14-alpine
+    image: postgres:17-alpine
     container_name: itpath_postgres
     restart: always
     environment:
