@@ -9,7 +9,7 @@ import (
 type AuthService interface {
 	// Авторизация
 	AuthenticateWithTelegram(ctx context.Context, data models.TelegramAuthData) (*models.AuthResult, error)
-	RefreshToken(ctx context.Context, refreshToken string) (*models.AuthResult, error)
+	efreshToken(ctx context.Context, refreshToken string) (*models.AuthResult, error)
 	Logout(ctx context.Context, userID int64) error
 	// Управление пользователями
 	GetUserByID(ctx context.Context, userID int64) (*models.User, error)

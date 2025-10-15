@@ -3,13 +3,13 @@ package app
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 	"itpath/internal/business/services"
 	"itpath/internal/config"
 	"itpath/internal/data/database"
 	"itpath/internal/data/repositories"
-	"itpath/internal/pkg/jwt"
+	"itpath/internal/logger"
 	"itpath/internal/presentation/routes"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,11 +19,15 @@ import (
 
 func Run() error {
 	// Загружаем конфигурацию
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	logger.InitLocalLogger(cfg.Logger.Level)
+
+	logger.Info("Creating new App...")
 	// Подключаемся к базе данных
 	db, err := database.NewPostgresConnection(cfg.Database.URL)
 	if err != nil {
@@ -31,33 +35,30 @@ func Run() error {
 	}
 	defer db.Close()
 
-	// Инициализируем зависимости слой за слоем
+	logger.Info("Connected to database")
 
+	// Инициализируем зависимости слой за слоем
 	// DATA LAYER
 	userRepo := repositories.NewUserRepository(db)
-
+	logger.Info("Initializing UserRepo...")
 	// BUSINESS LAYER
-	jwtManager, err := jwt.NewTokenManager(cfg.JWT.Secret)
-	if err != nil {
-		return fmt.Errorf("failed to create jwt manager: %w", err)
-	}
-	telegramService := services.NewTelegramService(cfg.Telegram.BotToken)
-	authService := services.NewAuthService(userRepo, telegramService, jwtManager)
-
-	// PRESENTATION LAYER
-	router := routes.SetupRoutes(authService, jwtManager)
+	authService := services.NewAuthService(userRepo)
+	logger.Info("Initializing AuthService...")
+	// PRESENTATION LAYER - с интеграцией go-pkgz/auth
+	router, _ := routes.SetupRoutes(cfg, authService)
+	logger.Info("Initializing Services...")
 
 	// HTTP сервер
 	server := &http.Server{
-		Addr:    ":" + cfg.Server.Port,
+		Addr:    cfg.Server.Host + ":" + cfg.Server.Port,
 		Handler: router,
 	}
 
 	// Запускаем сервер в горутине
 	go func() {
-		log.Printf("🚀 Server starting on port %s", cfg.Server.Port)
+		logger.Info("Initializing Server on " + server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start server:", err)
+			logger.Fatal("Failed to start server:", zap.Error(err))
 		}
 	}()
 
@@ -66,7 +67,7 @@ func Run() error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("🛑 Shutting down server...")
+	logger.Info("Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -75,6 +76,6 @@ func Run() error {
 		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 
-	log.Println("✅ Server exited")
+	logger.Info("Server gracefully stopped")
 	return nil
 }

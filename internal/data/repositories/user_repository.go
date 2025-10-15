@@ -2,156 +2,202 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"itpath/internal/data"
+	"go.uber.org/zap"
 	"itpath/internal/data/database"
 	"itpath/internal/data/entities"
-	"strings"
+	"itpath/internal/logger"
 )
 
-type userRepository struct {
-	db *pgxpool.Pool
+type UserRepository struct {
+	db *database.DB
 }
 
-func NewUserRepository(db *database.DB) data.UserRepository {
-	return &userRepository{
-		db: db.Pool,
-	}
+func NewUserRepository(db *database.DB) *UserRepository {
+	return &UserRepository{db: db}
 }
 
-func (r *userRepository) CreateUser(ctx context.Context, req entities.CreateUserRequest) (*entities.UserEntity, error) {
-	query := `
-		INSERT INTO users (telegram_id, username, first_name, last_name, photo_url)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, telegram_id, username, first_name, last_name, photo_url, role, subscription, created_at, updated_at
-	`
+// FindUserByTelegramID находит пользователя по Telegram ID
+func (r *UserRepository) FindUserByTelegramID(telegramID string) (*entities.UserEntity, error) {
+	query := `SELECT id, telegram_id, google_id, github_id, email, username, name, avatar_url, description, role, subscription_type, subscription_expires_at, created_at, updated_at 
+	          FROM users WHERE telegram_id = $1`
 
 	user := &entities.UserEntity{}
-
-	err := r.db.QueryRow(ctx, query,
-		req.TelegramID,
-		req.Username,
-		req.FirstName,
-		req.LastName,
-		req.PhotoURL,
-	).Scan(
-		&user.ID,
-		&user.TelegramID,
-		&user.Username,
-		&user.FirstName,
-		&user.LastName,
-		&user.PhotoURL,
-		&user.Role,
-		&user.Subscription,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+	err := r.db.Pool.QueryRow(context.Background(), query, telegramID).Scan(
+		&user.ID, &user.TelegramID, &user.GoogleID, &user.GitHubID, &user.Email, &user.Username,
+		&user.Name, &user.AvatarURL, &user.Description, &user.Role, &user.SubscriptionType,
+		&user.SubscriptionExpiresAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 
-	if err != nil {
-		return nil, err
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
 	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user by telegram_id: %w", err)
+	}
+
+	logger.Debug("DB: FindByITelegramD",
+		zap.String("telegramid", telegramID),
+		zap.Any("user", user),
+		zap.Error(err),
+	)
 
 	return user, nil
 }
 
-// ИЗМЕНЕНО: теперь обновляет по telegram_id, а не по id
-func (r *userRepository) Update(ctx context.Context, telegramId int64, req entities.UpdateUserRequest) (*entities.UserEntity, error) {
-	var setClauses []string
-	var args []interface{}
-	argCount := 1
-
-	if req.Username != nil {
-		setClauses = append(setClauses, fmt.Sprintf("username = $%d", argCount))
-		args = append(args, *req.Username)
-		argCount++
-	}
-	if req.FirstName != nil {
-		setClauses = append(setClauses, fmt.Sprintf("first_name = $%d", argCount))
-		args = append(args, *req.FirstName)
-		argCount++
-	}
-	if req.LastName != nil {
-		setClauses = append(setClauses, fmt.Sprintf("last_name = $%d", argCount))
-		args = append(args, *req.LastName)
-		argCount++
-	}
-	if req.PhotoURL != nil {
-		setClauses = append(setClauses, fmt.Sprintf("photo_url = $%d", argCount))
-		args = append(args, *req.PhotoURL)
-		argCount++
-	}
-
-	if len(setClauses) == 0 {
-		setClauses = append(setClauses, "updated_at = NOW()")
-	} else {
-		setClauses = append(setClauses, "updated_at = NOW()")
-	}
-
-	query := fmt.Sprintf(`
-		UPDATE users
-		SET %s
-		WHERE telegram_id = $%d
-		RETURNING id, telegram_id, username, first_name, last_name, photo_url, role, subscription, created_at, updated_at
-	`, strings.Join(setClauses, ", "), argCount)
-
-	args = append(args, telegramId)
+// FindUserByGoogleID находит пользователя по Google ID
+func (r *UserRepository) FindUserByGoogleID(googleID string) (*entities.UserEntity, error) {
+	query := `SELECT id, telegram_id, google_id, github_id, email, username, name, avatar_url, description, role, subscription_type, subscription_expires_at, created_at, updated_at 
+	          FROM users WHERE google_id = $1`
 
 	user := &entities.UserEntity{}
-
-	err := r.db.QueryRow(ctx, query, args...).Scan(
-		&user.ID,
-		&user.TelegramID,
-		&user.Username,
-		&user.FirstName,
-		&user.LastName,
-		&user.PhotoURL,
-		&user.Role,
-		&user.Subscription,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+	err := r.db.Pool.QueryRow(context.Background(), query, googleID).Scan(
+		&user.ID, &user.TelegramID, &user.GoogleID, &user.GitHubID, &user.Email, &user.Username,
+		&user.Name, &user.AvatarURL, &user.Description, &user.Role, &user.SubscriptionType,
+		&user.SubscriptionExpiresAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, entities.ErrUserNotFound
-		}
-		return nil, err
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
 	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user by google_id: %w", err)
+	}
+
+	logger.Debug("DB: FindByGoogleID",
+		zap.String("GoogleId", googleID),
+		zap.Any("user", user),
+		zap.Error(err),
+	)
 
 	return user, nil
 }
 
-func (r *userRepository) GetByTelegramID(ctx context.Context, telegramID int64) (*entities.UserEntity, error) {
-	query := `
-		SELECT id, telegram_id, username, first_name, last_name, photo_url, role, subscription, created_at, updated_at
-		FROM users
-		WHERE telegram_id = $1
-	`
+// FindUserByGitHubID находит пользователя по GitHub ID
+func (r *UserRepository) FindUserByGitHubID(githubID string) (*entities.UserEntity, error) {
+	query := `SELECT id, telegram_id, google_id, github_id, email, username, name, avatar_url, description, role, subscription_type, subscription_expires_at, created_at, updated_at 
+	          FROM users WHERE github_id = $1`
 
 	user := &entities.UserEntity{}
+	err := r.db.Pool.QueryRow(context.Background(), query, githubID).Scan(
+		&user.ID, &user.TelegramID, &user.GoogleID, &user.GitHubID, &user.Email, &user.Username,
+		&user.Name, &user.AvatarURL, &user.Description, &user.Role, &user.SubscriptionType,
+		&user.SubscriptionExpiresAt, &user.CreatedAt, &user.UpdatedAt,
+	)
 
-	err := r.db.QueryRow(ctx, query, telegramID).Scan(
-		&user.ID,
-		&user.TelegramID,
-		&user.Username,
-		&user.FirstName,
-		&user.LastName,
-		&user.PhotoURL,
-		&user.Role,
-		&user.Subscription,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user by github_id: %w", err)
+	}
+
+	logger.Debug("DB: FindByGitHubID",
+		zap.String("githubId", githubID),
+		zap.Any("user", user),
+		zap.Error(err),
+	)
+
+	return user, nil
+}
+
+// FindUserByEmail находит пользователя по email
+func (r *UserRepository) FindUserByEmail(email string) (*entities.UserEntity, error) {
+	query := `SELECT id, telegram_id, google_id, github_id, email, username, name, avatar_url, description, role, subscription_type, subscription_expires_at, created_at, updated_at 
+	          FROM users WHERE email = $1`
+
+	user := &entities.UserEntity{}
+	err := r.db.Pool.QueryRow(context.Background(), query, email).Scan(
+		&user.ID, &user.TelegramID, &user.GoogleID, &user.GitHubID, &user.Email, &user.Username,
+		&user.Name, &user.AvatarURL, &user.Description, &user.Role, &user.SubscriptionType,
+		&user.SubscriptionExpiresAt, &user.CreatedAt, &user.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user by email: %w", err)
+	}
+
+	logger.Debug("DB: FindByID",
+		zap.String("email", email),
+		zap.Any("user", user),
+		zap.Error(err),
+	)
+
+	return user, nil
+}
+
+// FindUserByID находит пользователя по ID
+func (r *UserRepository) FindUserByID(id int64) (*entities.UserEntity, error) {
+	query := `SELECT id, telegram_id, google_id, github_id, email, username, name, avatar_url, description, role, subscription_type, subscription_expires_at, created_at, updated_at 
+	          FROM users WHERE id = $1`
+
+	user := &entities.UserEntity{}
+	err := r.db.Pool.QueryRow(context.Background(), query, id).Scan(
+		&user.ID, &user.TelegramID, &user.GoogleID, &user.GitHubID, &user.Email, &user.Username,
+		&user.Name, &user.AvatarURL, &user.Description, &user.Role, &user.SubscriptionType,
+		&user.SubscriptionExpiresAt, &user.CreatedAt, &user.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find user by id: %w", err)
+	}
+	logger.Debug("DB: FindByID",
+		zap.Int64("id", id),
+		zap.Any("user", user),
+		zap.Error(err),
+	)
+
+	return user, nil
+}
+
+// CreateUser создает нового пользователя
+func (r *UserRepository) CreateUser(user *entities.UserEntity) error {
+	query := `INSERT INTO users (telegram_id, google_id, github_id, email, username, name, avatar_url, description, role) 
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+	          RETURNING id, created_at, updated_at`
+
+	err := r.db.Pool.QueryRow(
+		context.Background(),
+		query,
+		user.TelegramID, user.GoogleID, user.GitHubID, user.Email, user.Username,
+		user.Name, user.AvatarURL, user.Description, user.Role,
+	).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
+
+	if err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+
+	logger.Debug("DB: Create user", zap.Int64("user", user.ID))
+
+	return nil
+}
+
+// UpdateUser обновляет данные пользователя
+func (r *UserRepository) UpdateUser(user *entities.UserEntity) error {
+	query := `UPDATE users 
+	          SET telegram_id = $1, google_id = $2, github_id = $3, email = $4, username = $5, 
+	              name = $6, avatar_url = $7, description = $8, role = $9
+	          WHERE id = $10`
+
+	_, err := r.db.Pool.Exec(
+		context.Background(),
+		query,
+		user.TelegramID, user.GoogleID, user.GitHubID, user.Email, user.Username,
+		user.Name, user.AvatarURL, user.Description, user.Role, user.ID,
 	)
 
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, entities.ErrUserNotFound
-		}
-		return nil, fmt.Errorf("failed to get user by telegram id from db: %w", err)
+		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	return user, nil
+	logger.Debug("DB: Update user", zap.Int64("user", user.ID))
+
+	return nil
 }
