@@ -15,3 +15,5 @@ generate.go
 /deploy/certificate.conf
 /deploy/logs/
 /cmd/auth/
+/internal/business/services/auth_service.go.backup
+/internal/presentation/handlers/auth_handler.go.backup
