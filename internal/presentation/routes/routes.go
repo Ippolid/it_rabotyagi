@@ -4,32 +4,46 @@ import (
 	"itpath/internal/business/services"
 	"itpath/internal/config"
 	"itpath/internal/presentation/handlers"
-	"log"
 	"net/http"
-	"time"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-pkgz/auth"
-	"github.com/go-pkgz/auth/avatar"
-	"github.com/go-pkgz/auth/token"
 )
 
-// SimpleLogger реализует интерфейс logger.L для go-pkgz/auth
-type SimpleLogger struct{}
-
-func (l SimpleLogger) Logf(format string, args ...interface{}) {
-	log.Printf(format, args...)
-}
-
-func SetupRoutes(cfg *config.Config, authService *services.AuthService) (*gin.Engine, *auth.Service) {
+// SetupRoutes настраивает и возвращает роутер
+func SetupRoutes(cfg *config.Config, authService *services.AuthService, oauthService *services.OAuthService) *gin.Engine {
 	router := gin.Default()
 
+	// Настройка middleware
+	setupMiddleware(router)
+
+	// Настройка статических файлов
+	setupStaticFiles(router)
+
+	// Инициализируем хендлеры
+	authHandler := handlers.NewAuthHandler(authService, oauthService)
+
+	// Настройка OAuth роутов
+	setupOAuthRoutes(router, authHandler)
+
+	// Настройка API роутов
+	setupAPIRoutes(router, authService, authHandler)
+
+	return router
+}
+
+// setupMiddleware настраивает middleware для роутера
+func setupMiddleware(router *gin.Engine) {
 	// CORS middleware
 	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+		if origin == "" {
+			origin = "http://localhost:8080"
+		}
+		c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-JWT")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
@@ -38,118 +52,114 @@ func SetupRoutes(cfg *config.Config, authService *services.AuthService) (*gin.En
 
 		c.Next()
 	})
+}
 
-	// Статические файлы
+// setupStaticFiles настраивает раздачу статических файлов
+func setupStaticFiles(router *gin.Engine) {
 	router.Static("/web", "./web")
 	router.GET("/", func(c *gin.Context) {
 		c.File("./web/index.html")
 	})
-
-	// Настройка go-pkgz/auth
-	authOptions := auth.Opts{
-		SecretReader: token.SecretFunc(func(id string) (string, error) {
-			return cfg.Auth.Secret, nil
-		}),
-		ClaimsUpd:       token.ClaimsUpdFunc(authService.ClaimsUpdater), // Подключаем обновление claims для сохранения в БД
-		TokenDuration:   time.Minute * time.Duration(cfg.Auth.TokenDuration),
-		CookieDuration:  time.Hour * 24 * 7, // 7 дней
-		Issuer:          "itpath",
-		URL:             cfg.Server.PublicURL,
-		AvatarStore:     avatar.NewNoOp(),
-		Logger:          SimpleLogger{},
-		DisableXSRF:     true,                     // Отключаем XSRF для упрощения
-		SecureCookies:   false,                    // Для HTTP (в продакшене должно быть true)
-		SameSiteCookie:  http.SameSiteDefaultMode, // Default для совместимости
-		JWTCookieDomain: "",                       // Пустой домен для работы на любом хосте
-	}
-
-	authSvc := auth.NewService(authOptions)
-
-	// Добавляем провайдеры аутентификации
-	// Telegram
-	if cfg.Auth.Telegram.Token != "" {
-		authSvc.AddProvider("telegram", cfg.Auth.Telegram.Token, "")
-		log.Println("✅ Telegram provider enabled")
-	}
-
-	// Google
-	if cfg.Auth.Google.ClientID != "" && cfg.Auth.Google.ClientSecret != "" {
-		authSvc.AddProvider("google", cfg.Auth.Google.ClientID, cfg.Auth.Google.ClientSecret)
-		log.Println("✅ Google provider enabled")
-	}
-
-	// GitHub
-	if cfg.Auth.GitHub.ClientID != "" && cfg.Auth.GitHub.ClientSecret != "" {
-		authSvc.AddProvider("github", cfg.Auth.GitHub.ClientID, cfg.Auth.GitHub.ClientSecret)
-		log.Println("✅ GitHub provider enabled")
-	}
-
-	// Монтируем auth routes от go-pkgz/auth
-	authRoutes, avaRoutes := authSvc.Handlers()
-
-	// Auth handlers
-	router.GET("/auth/:provider/login", gin.WrapH(authRoutes))
-	router.POST("/auth/:provider/login", gin.WrapH(authRoutes))
-	router.GET("/auth/:provider/callback", gin.WrapH(authRoutes))
-	router.GET("/auth/logout", gin.WrapH(authRoutes))
-
-	// Avatar handlers
-	router.GET("/avatar/:avatar", gin.WrapH(avaRoutes))
-
-	// Инициализируем хендлеры
-	authHandler := handlers.NewAuthHandler(authService)
-
-	// API routes
-	api := router.Group("/api/v1")
-	{
-		// Публичные эндпоинты
-		api.GET("/users/:id", authHandler.GetUserByID)
-
-		// Защищенные эндпоинты (требуют аутентификации)
-		authorized := api.Group("")
-		authorized.Use(AuthMiddleware(authSvc))
-		{
-			authorized.GET("/me", authHandler.GetMe)
-			authorized.POST("/logout", authHandler.Logout)
-		}
-	}
-
-	return router, authSvc
 }
 
-// AuthMiddleware проверяет JWT токен через go-pkgz/auth
-func AuthMiddleware(authSvc *auth.Service) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Получаем middleware от auth service
-		middleware := authSvc.Middleware()
+// setupOAuthRoutes монтирует OAuth роуты
+func setupOAuthRoutes(router *gin.Engine, authHandler *handlers.AuthHandler) {
+	auth := router.Group("/auth")
+	{
+		// GitHub OAuth
+		auth.GET("/github/login", authHandler.GitHubLogin)
+		auth.GET("/github/callback", authHandler.GitHubCallback)
 
-		// Создаем обработчик для проверки аутентификации
-		var authenticated bool
-		var userInfo token.User
+		// Google OAuth
+		auth.GET("/google/login", authHandler.GoogleLogin)
+		auth.GET("/google/callback", authHandler.GoogleCallback)
 
-		testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Получаем user из контекста
-			user, err := token.GetUserInfo(r)
-			if err != nil {
-				authenticated = false
-				return
+		// Logout
+		auth.POST("/logout", authHandler.Logout)
+		auth.GET("/logout", authHandler.Logout)
+	}
+}
+
+// setupAPIRoutes настраивает API эндпоинты
+func setupAPIRoutes(router *gin.Engine, authService *services.AuthService, authHandler *handlers.AuthHandler) {
+	api := router.Group("/api/v1")
+	{
+		// ============================================================================
+		// Публичные эндпоинты (не требуют авторизации)
+		// ============================================================================
+		public := api.Group("/public")
+		{
+			public.GET("/users/:id", authHandler.GetUserByID)
+		}
+
+		// ============================================================================
+		// Защищенные эндпоинты (требуют авторизации)
+		// ============================================================================
+		authorized := api.Group("")
+		authorized.Use(AuthMiddleware(authService))
+		{
+			// Профиль текущего пользователя
+			authorized.GET("/me", authHandler.GetMe)
+			authorized.PUT("/me", authHandler.UpdateProfile)
+			authorized.POST("/logout", authHandler.Logout)
+
+			// Управление связанными аккаунтами
+			accounts := authorized.Group("/accounts")
+			{
+				// GitHub
+				accounts.POST("/github/link", authHandler.LinkGitHub)
+				accounts.DELETE("/github/unlink", authHandler.UnlinkGitHub)
+
+				// Google
+				accounts.POST("/google/link", authHandler.LinkGoogle)
+				accounts.DELETE("/google/unlink", authHandler.UnlinkGoogle)
+
+				// Telegram
+				accounts.POST("/telegram/link", authHandler.LinkTelegram)
+				accounts.DELETE("/telegram/unlink", authHandler.UnlinkTelegram)
 			}
+		}
+	}
+}
 
-			userInfo = user
-			authenticated = true
-		})
+// AuthMiddleware проверяет JWT токен
+func AuthMiddleware(authService *services.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Пытаемся получить токен из cookie
+		tokenString, err := c.Cookie("jwt")
 
-		// Применяем middleware
-		wrappedHandler := middleware.Auth(testHandler)
-		wrappedHandler.ServeHTTP(c.Writer, c.Request)
+		// Если в cookie нет, пробуем Authorization header
+		if err != nil || tokenString == "" {
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" {
+				// Ожидаем формат: "Bearer <token>"
+				parts := strings.SplitN(authHeader, " ", 2)
+				if len(parts) == 2 && parts[0] == "Bearer" {
+					tokenString = parts[1]
+				}
+			}
+		}
 
-		if !authenticated {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		if tokenString == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error":   "unauthorized",
+				"message": "Authentication required",
+			})
 			return
 		}
 
-		// Сохраняем user в контекст Gin
-		c.Set("user", userInfo)
+		// Валидируем токен
+		claims, err := authService.ValidateToken(tokenString)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error":   "unauthorized",
+				"message": "Invalid or expired token",
+			})
+			return
+		}
+
+		// Сохраняем claims в контекст
+		c.Set("claims", claims)
 		c.Next()
 	}
 }

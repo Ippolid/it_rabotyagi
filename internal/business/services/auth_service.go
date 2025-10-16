@@ -1,130 +1,114 @@
 package services
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"itpath/internal/business/models"
 	"itpath/internal/data/entities"
 	"itpath/internal/data/repositories"
-	"log"
+	"itpath/internal/logger"
 	"strconv"
+	"time"
 
-	"github.com/go-pkgz/auth/token"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 type AuthService struct {
-	userRepo *repositories.UserRepository
+	userRepo  *repositories.UserRepository
+	jwtSecret string
 }
 
-func NewAuthService(userRepo *repositories.UserRepository) *AuthService {
+// Claims представляет JWT claims
+type Claims struct {
+	UserID   int64  `json:"user_id"`
+	Email    string `json:"email"`
+	Name     string `json:"name"`
+	Role     string `json:"role"`
+	Provider string `json:"provider"`
+	jwt.RegisteredClaims
+}
+
+func NewAuthService(userRepo *repositories.UserRepository, jwtSecret string) *AuthService {
 	return &AuthService{
-		userRepo: userRepo,
+		userRepo:  userRepo,
+		jwtSecret: jwtSecret,
 	}
 }
 
-// GetOrCreateUser получает или создает пользователя на основе данных от провайдера
-func (s *AuthService) GetOrCreateUser(claims token.User) (*models.User, error) {
-	var userEntity *entities.UserEntity
-	var err error
+// ============================================================================
+// JWT методы
+// ============================================================================
 
-	// Определяем провайдера и ищем пользователя
-	switch {
-	case claims.ID != "" && len(claims.ID) > 0:
-		// Попробуем найти по разным провайдерам
-		if userEntity, err = s.findUserByProvider(claims); err == nil {
+// GenerateToken генерирует JWT токен для пользователя
+func (s *AuthService) GenerateToken(user *models.User, provider string) (string, error) {
+	expirationTime := time.Now().Add(24 * 7 * time.Hour) // 7 дней
 
-			fmt.Pr
-			return s.convertToModel(userEntity), nil
-		}
-
-		// Если не нашли - создаем нового
-		userEntity = s.createUserEntityFromClaims(claims)
-		if err := s.userRepo.Create(userEntity); err != nil {
-			return nil, fmt.Errorf("failed to create user: %w", err)
-		}
-
-		return s.convertToModel(userEntity), nil
+	email := ""
+	if user.Email != nil {
+		email = *user.Email
 	}
 
-	return nil, fmt.Errorf("invalid user claims")
+	claims := &Claims{
+		UserID:   user.ID,
+		Email:    email,
+		Name:     user.Name,
+		Role:     string(user.Role),
+		Provider: provider,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "itpath",
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	return tokenString, nil
 }
 
-// findUserByProvider ищет пользователя по ID от провайдера
-func (s *AuthService) findUserByProvider(claims token.User) (*entities.UserEntity, error) {
-	// Telegram
-	if claims.ID != "" {
-		user, err := s.userRepo.FindByTelegramID(claims.ID)
-		if err == nil {
-			return user, nil
+// ValidateToken проверяет JWT токен и возвращает claims
+func (s *AuthService) ValidateToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
+		return []byte(s.jwtSecret), nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %w", err)
 	}
 
-	// Google (если ID начинается с google_ или содержит email)
-	if claims.Email != "" {
-		user, err := s.userRepo.FindByGoogleID(claims.ID)
-		if err == nil {
-			return user, nil
-		}
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
 	}
 
-	// GitHub
-	user, err := s.userRepo.FindByGitHubID(claims.ID)
-	if err == nil {
-		return user, nil
-	}
-
-	return nil, fmt.Errorf("user not found")
+	return nil, fmt.Errorf("invalid token")
 }
 
-// createUserEntityFromClaims создает entity пользователя из claims
-func (s *AuthService) createUserEntityFromClaims(claims token.User) *entities.UserEntity {
-	user := &entities.UserEntity{
-		Name: claims.Name,
-		Role: entities.RoleUser,
+// GenerateCSRFToken генерирует CSRF токен
+func (s *AuthService) GenerateCSRFToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
 	}
-
-	// Определяем провайдера и заполняем соответствующие поля
-	if claims.Email != "" {
-		user.Email = &claims.Email
-	}
-
-	// Telegram
-	if claims.ID != "" && claims.Attributes != nil {
-		if _, ok := claims.Attributes["telegram"]; ok {
-			user.TelegramID = &claims.ID
-			if username, ok := claims.Attributes["username"].(string); ok {
-				user.Username = &username
-			}
-		}
-	}
-
-	// Google
-	if claims.Email != "" && claims.Attributes != nil {
-		if _, ok := claims.Attributes["google"]; ok {
-			user.GoogleID = &claims.ID
-		}
-	}
-
-	// GitHub
-	if claims.Attributes != nil {
-		if _, ok := claims.Attributes["github"]; ok {
-			user.GitHubID = &claims.ID
-			if username, ok := claims.Attributes["username"].(string); ok {
-				user.Username = &username
-			}
-		}
-	}
-
-	if claims.Picture != "" {
-		user.AvatarURL = &claims.Picture
-	}
-
-	return user
+	return base64.URLEncoding.EncodeToString(b), nil
 }
 
-// GetUserByID получает пользователя по ID
+// ============================================================================
+// Основные методы для работы с пользователями
+// ============================================================================
+
+// GetUserByID получает пользователя по ID из базы данных
 func (s *AuthService) GetUserByID(id int64) (*models.User, error) {
-	userEntity, err := s.userRepo.FindByID(id)
+	userEntity, err := s.userRepo.FindUserByID(id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("user not found")
@@ -132,397 +116,364 @@ func (s *AuthService) GetUserByID(id int64) (*models.User, error) {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	return s.convertToModel(userEntity), nil
+	return models.ConvertToModel(userEntity), nil
 }
 
-// convertToModel конвертирует entity в бизнес-модель
-func (s *AuthService) convertToModel(userEntity *entities.UserEntity) *models.User {
-	user := &models.User{
-		ID:        userEntity.ID,
-		Name:      userEntity.Name,
-		Role:      string(userEntity.Role),
-		CreatedAt: userEntity.CreatedAt,
-		UpdatedAt: userEntity.UpdatedAt,
-	}
-
-	if userEntity.TelegramID != nil {
-		user.TelegramID = userEntity.TelegramID
-	}
-	if userEntity.GoogleID != nil {
-		user.GoogleID = userEntity.GoogleID
-	}
-	if userEntity.GitHubID != nil {
-		user.GitHubID = userEntity.GitHubID
-	}
-	if userEntity.Email != nil {
-		user.Email = userEntity.Email
-	}
-	if userEntity.Username != nil {
-		user.Username = userEntity.Username
-	}
-	if userEntity.AvatarURL != nil {
-		user.AvatarURL = userEntity.AvatarURL
-	}
-	if userEntity.Description != nil {
-		user.Description = userEntity.Description
-	}
-	if userEntity.SubscriptionType != nil {
-		subType := string(*userEntity.SubscriptionType)
-		user.SubscriptionType = &subType
-	}
-	if userEntity.SubscriptionExpiresAt != nil {
-		user.SubscriptionExpiresAt = userEntity.SubscriptionExpiresAt
-	}
-
-	return user
-}
-
-// UpdateUser обновляет данные пользователя
+// UpdateUser обновляет данные пользователя в базе данных
 func (s *AuthService) UpdateUser(user *models.User) error {
-	userEntity := &entities.UserEntity{
-		ID:          user.ID,
-		TelegramID:  user.TelegramID,
-		GoogleID:    user.GoogleID,
-		GitHubID:    user.GitHubID,
-		Email:       user.Email,
-		Username:    user.Username,
-		Name:        user.Name,
-		AvatarURL:   user.AvatarURL,
-		Description: user.Description,
-		Role:        entities.UserRole(user.Role),
-	}
-
-	if user.SubscriptionType != nil {
-		subType := entities.SubscriptionType(*user.SubscriptionType)
-		userEntity.SubscriptionType = &subType
-	}
-
-	if user.SubscriptionExpiresAt != nil {
-		userEntity.SubscriptionExpiresAt = user.SubscriptionExpiresAt
-	}
-
-	return s.userRepo.Update(userEntity)
+	userEntity := models.ConvertToEntity(user)
+	return s.userRepo.UpdateUser(userEntity)
 }
 
-// ClaimsUpdater обновляет claims после успешной OAuth авторизации
-// Этот метод вызывается go-pkgz/auth и позволяет сохранить пользователя в БД
-func (s *AuthService) ClaimsUpdater(claims token.Claims) token.Claims {
-	// Пропускаем handshake токены (промежуточные токены OAuth процесса)
-	if claims.Handshake != nil {
-		log.Printf("[AUTH] Skipping handshake token")
-		return claims
-	}
+// ============================================================================
+// OAuth методы - GitHub
+// ============================================================================
 
-	// Проверяем, что User не nil (должен быть заполнен после успешной OAuth авторизации)
-	if claims.User == nil {
-		log.Printf("[AUTH ERROR] claims.User is nil (not a handshake token)")
-		return claims
-	}
+// GetOrCreateUserFromGitHub получает или создает пользователя на основе данных GitHub
+func (s *AuthService) GetOrCreateUserFromGitHub(githubUser *GitHubUser) (*models.User, error) {
+	githubID := strconv.FormatInt(githubUser.ID, 10)
 
-	//log.Printf("[AUTH] Processing claims for user: %s (ID: %s)", claims.User.Name, claims.User.ID)
-
-	// Получаем или создаем пользователя в БД
-	fmt.Println(claims.User, "        dfdsfsdfsfsfs")
-	user, err := s.GetOrCreateUserFromClaims(*claims.User)
-	if err != nil {
-		log.Printf("[AUTH ERROR] Failed to get/create user: %v", err)
-		return claims
-	}
-
-	log.Printf("[AUTH] User saved to DB with ID: %d", user.ID)
-
-	// Добавляем ID из БД в claims для дальнейшего использования
-	if claims.User.Attributes == nil {
-		claims.User.Attributes = make(map[string]interface{})
-	}
-	claims.User.Attributes["db_user_id"] = user.ID
-
-	return claims
-}
-
-// GetOrCreateUserFromClaims получает или создает пользователя на основе OAuth claims
-func (s *AuthService) GetOrCreateUserFromClaims(claims token.User) (*models.User, error) {
-	// Определяем провайдера по audience
-	provider := s.detectProvider(claims)
-	log.Printf("[AUTH] Detected provider: %s for user: %s", provider, claims.Name)
-	log.Printf("[AUTH] Claims ID: %s", claims.ID)
-	log.Printf("[AUTH] Claims Attributes: %+v", claims.Attributes)
-
-	// Извлекаем ID пользователя без префикса провайдера
-	userID := s.extractProviderUserID(claims.ID, provider)
-	log.Printf("[AUTH] Extracted user ID: %s", userID)
-
-	var userEntity *entities.UserEntity
-	var err error
-
-	// Для GitHub ищем по login из attributes, а не по хешу
-	if provider == "github" && claims.Attributes != nil {
-		if login, ok := claims.Attributes["login"].(string); ok && login != "" {
-			log.Printf("[AUTH] Searching GitHub user by login: %s", login)
-			userEntity, err = s.userRepo.FindByGitHubID(login)
-			if err == nil && userEntity != nil {
-				log.Printf("[AUTH] User found in DB: ID=%d", userEntity.ID)
-				// Обновляем данные пользователя (например, avatar, name)
-				s.updateUserFromClaims(userEntity, claims, provider)
-				if updateErr := s.userRepo.Update(userEntity); updateErr != nil {
-					log.Printf("[AUTH] Failed to update user: %v", updateErr)
-				}
-				return s.convertToModel(userEntity), nil
-			}
-		}
-	}
-
-	// Пытаемся найти пользователя по ID провайдера для других провайдеров
-	if provider != "github" {
-		switch provider {
-		case "telegram":
-			userEntity, err = s.userRepo.FindByTelegramID(userID)
-		case "google":
-			userEntity, err = s.userRepo.FindByGoogleID(userID)
-		default:
-			// Пытаемся найти по email если есть
-			if claims.Email != "" {
-				userEntity, err = s.findByEmail(claims.Email)
-			}
+	// Пытаемся найти существующего пользователя по GitHub ID
+	userEntity, err := s.userRepo.FindUserByGitHubID(githubID)
+	if err == nil {
+		// Пользователь найден - обновляем его данные
+		s.updateUserFromGitHub(userEntity, githubUser)
+		if updateErr := s.userRepo.UpdateUser(userEntity); updateErr != nil {
+			logger.Error("Failed to update user from GitHub", zap.Error(updateErr))
 		}
 
-		// Если пользователь найден - обновляем данные и возвращаем
-		if err == nil && userEntity != nil {
-			log.Printf("[AUTH] User found in DB: ID=%d", userEntity.ID)
-			// Обновляем данные пользователя (например, avatar, name)
-			s.updateUserFromClaims(userEntity, claims, provider)
-			if updateErr := s.userRepo.Update(userEntity); updateErr != nil {
-				log.Printf("[AUTH] Failed to update user: %v", updateErr)
+		logger.Info("User authenticated via GitHub", zap.Int64("user_id", userEntity.ID))
+		return models.ConvertToModel(userEntity), nil
+	}
+
+	// Если есть email, проверяем существует ли пользователь с таким email
+	if githubUser.Email != nil && *githubUser.Email != "" {
+		userEntity, err = s.userRepo.FindUserByEmail(*githubUser.Email)
+		if err == nil {
+			// Пользователь с таким email уже существует - линкуем GitHub аккаунт
+			logger.Info("Linking GitHub account to existing user by email",
+				zap.Int64("user_id", userEntity.ID),
+				zap.String("email", *githubUser.Email),
+				zap.String("github_login", githubUser.Login))
+
+			// Обновляем GitHub ID и другие данные
+			userEntity.GitHubID = &githubID
+			s.updateUserFromGitHub(userEntity, githubUser)
+
+			if updateErr := s.userRepo.UpdateUser(userEntity); updateErr != nil {
+				logger.Error("Failed to link GitHub account", zap.Error(updateErr))
+				return nil, fmt.Errorf("failed to link GitHub account: %w", updateErr)
 			}
-			return s.convertToModel(userEntity), nil
+
+			logger.Info("GitHub account linked to existing user", zap.Int64("user_id", userEntity.ID))
+			return models.ConvertToModel(userEntity), nil
 		}
 	}
 
 	// Пользователь не найден - создаем нового
-	log.Printf("[AUTH] Creating new user for %s", claims.Name)
-	userEntity = s.createUserEntityFromOAuthClaims(claims, provider)
-	log.Printf("[AUTH] New user entity to create: GitHubID=%v, Username=%v, Email=%v",
-		userEntity.GitHubID, userEntity.Username, userEntity.Email)
+	logger.Info("Creating new user from GitHub", zap.String("login", githubUser.Login))
 
-	if err := s.userRepo.Create(userEntity); err != nil {
+	userEntity = &entities.UserEntity{
+		GitHubID: &githubID,
+		Username: &githubUser.Login,
+		Name:     *githubUser.Name,
+		Role:     entities.RoleUser,
+	}
+
+	s.updateUserFromGitHub(userEntity, githubUser)
+
+	if err := s.userRepo.CreateUser(userEntity); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	log.Printf("[AUTH] New user created with ID: %d", userEntity.ID)
-	return s.convertToModel(userEntity), nil
+	logger.Info("New user created from GitHub", zap.Int64("user_id", userEntity.ID))
+	return models.ConvertToModel(userEntity), nil
 }
 
-// detectProvider определяет OAuth провайдера по claims
-func (s *AuthService) detectProvider(claims token.User) string {
-	// Проверяем по ID (go-pkgz/auth добавляет префикс провайдера к ID)
-	if len(claims.ID) > 7 && claims.ID[:7] == "github_" {
-		return "github"
-	}
-	if len(claims.ID) > 7 && claims.ID[:7] == "google_" {
-		return "google"
-	}
-	if len(claims.ID) > 9 && claims.ID[:9] == "telegram_" {
-		return "telegram"
-	}
-
-	// Проверяем audience
-	if claims.Audience != "" {
-		return claims.Audience
-	}
-
-	// Проверяем attributes
-	if claims.Attributes != nil {
-		if provider, ok := claims.Attributes["provider"].(string); ok {
-			return provider
-		}
-	}
-
-	// Определяем по email (Google обычно возвращает email)
-	if claims.Email != "" {
-		return "google"
-	}
-
-	return "unknown"
-}
-
-// createUserEntityFromOAuthClaims создает entity из OAuth claims
-func (s *AuthService) createUserEntityFromOAuthClaims(claims token.User, provider string) *entities.UserEntity {
-	user := &entities.UserEntity{
-		Name: claims.Name,
-		Role: entities.RoleUser,
-	}
-
-	// Извлекаем правильный ID пользователя из claims.ID (убираем префикс провайдера)
-	userID := s.extractProviderUserID(claims.ID, provider)
-
-	// Заполняем поля в зависимости от провайдера
-	switch provider {
-	case "telegram":
-		user.TelegramID = &userID
-		if claims.Attributes != nil {
-			if username, ok := claims.Attributes["username"].(string); ok && username != "" {
-				user.Username = &username
-			}
-		}
-	case "google":
-		user.GoogleID = &userID
-		if claims.Email != "" {
-			user.Email = &claims.Email
-		}
-	case "github":
-		// Для GitHub пытаемся получить login (username) из attributes
-		if claims.Attributes != nil {
-			if login, ok := claims.Attributes["login"].(string); ok && login != "" {
-				user.GitHubID = &login
-				user.Username = &login
-			} else {
-				// Если login нет, используем ID
-				user.GitHubID = &userID
-			}
-			if email, ok := claims.Attributes["email"].(string); ok && email != "" {
-				user.Email = &email
-			}
-			if username, ok := claims.Attributes["username"].(string); ok && username != "" {
-				user.Username = &username
-			}
+// updateUserFromGitHub обновляет entity из данных GitHub (только пустые поля)
+func (s *AuthService) updateUserFromGitHub(user *entities.UserEntity, githubUser *GitHubUser) {
+	// Обновляем name только если оно пустое
+	if user.Name == "" {
+		if githubUser.Name != nil && *githubUser.Name != "" {
+			user.Name = *githubUser.Name
 		} else {
-			user.GitHubID = &userID
+			user.Name = githubUser.Login
 		}
 	}
 
-	if claims.Picture != "" {
-		user.AvatarURL = &claims.Picture
+	// Email - обновляем только если пустой
+	if user.Email == nil || *user.Email == "" {
+		if githubUser.Email != nil && *githubUser.Email != "" {
+			user.Email = githubUser.Email
+		}
 	}
 
-	return user
-}
-
-// extractProviderUserID извлекает ID пользователя, убирая префикс провайдера
-func (s *AuthService) extractProviderUserID(fullID string, provider string) string {
-	prefix := provider + "_"
-	if len(fullID) > len(prefix) && fullID[:len(prefix)] == prefix {
-		return fullID[len(prefix):]
-	}
-	return fullID
-}
-
-// updateUserFromClaims обновляет entity из OAuth claims
-func (s *AuthService) updateUserFromClaims(user *entities.UserEntity, claims token.User, provider string) {
-	// Обновляем имя если изменилось
-	if claims.Name != "" && claims.Name != user.Name {
-		user.Name = claims.Name
+	// Username - обновляем только если пустой
+	if user.Username == nil || *user.Username == "" {
+		user.Username = &githubUser.Login
 	}
 
-	// Обновляем специфичные данные провайдера
-	switch provider {
-	case "telegram":
-		if user.TelegramID == nil {
-			user.TelegramID = &claims.ID
+	// Avatar - обновляем только если пустой
+	if user.AvatarURL == nil || *user.AvatarURL == "" {
+		if githubUser.AvatarURL != "" {
+			user.AvatarURL = &githubUser.AvatarURL
 		}
-		if claims.Attributes != nil {
-			if username, ok := claims.Attributes["username"].(string); ok && username != "" {
-				user.Username = &username
-			}
+	}
+
+	// Description - обновляем только если пустой
+	if user.Description == nil || *user.Description == "" {
+		var descParts []string
+
+		if githubUser.Bio != nil && *githubUser.Bio != "" {
+			descParts = append(descParts, *githubUser.Bio)
 		}
-		// Обновляем avatar если изменился
-		if claims.Picture != "" {
-			user.AvatarURL = &claims.Picture
-		}
-	case "google":
-		if user.GoogleID == nil {
-			user.GoogleID = &claims.ID
-		}
-		// Обновляем email если есть
-		if claims.Email != "" && (user.Email == nil || *user.Email != claims.Email) {
-			user.Email = &claims.Email
-		}
-		// Обновляем avatar если изменился
-		if claims.Picture != "" {
-			user.AvatarURL = &claims.Picture
-		}
-	case "github":
-		// Обновляем GitHubID по login
-		if claims.Attributes != nil {
-			if login, ok := claims.Attributes["login"].(string); ok && login != "" {
-				if user.GitHubID == nil || *user.GitHubID != login {
-					user.GitHubID = &login
-					user.Username = &login
+
+		//if githubUser.Company != nil && *githubUser.Company != "" {
+		//	descParts = append(descParts, "🏢 "+*githubUser.Company)
+		//}
+		//
+		//if githubUser.Location != nil && *githubUser.Location != "" {
+		//	descParts = append(descParts, "📍 "+*githubUser.Location)
+		//}
+		//
+		//if githubUser.Blog != nil && *githubUser.Blog != "" {
+		//	descParts = append(descParts, "🔗 "+*githubUser.Blog)
+		//}
+
+		if len(descParts) > 0 {
+			desc := ""
+			for i, part := range descParts {
+				if i > 0 {
+					desc += " | "
 				}
+				desc += part
 			}
-
-			// Обновляем bio (description)
-			if bio, ok := claims.Attributes["bio"].(string); ok && bio != "" {
-				user.Description = &bio
-			}
-
-			// Обновляем email если есть
-			if email, ok := claims.Attributes["email"].(string); ok && email != "" {
-				user.Email = &email
-			}
-
-			// Обновляем avatar_url из GitHub attributes
-			if avatarURL, ok := claims.Attributes["avatar_url"].(string); ok && avatarURL != "" {
-				user.AvatarURL = &avatarURL
-			}
-		}
-
-		// Если avatar_url не был в attributes, используем claims.Picture
-		if user.AvatarURL == nil && claims.Picture != "" {
-			user.AvatarURL = &claims.Picture
+			user.Description = &desc
 		}
 	}
+
+	logger.Debug("Updated user from GitHub",
+		zap.String("login", githubUser.Login),
+		zap.Any("name", githubUser.Name),
+		zap.Any("email", githubUser.Email),
+		zap.Int("public_repos", githubUser.PublicRepos),
+		zap.Int("followers", githubUser.Followers))
 }
 
-// findByEmail ищет пользователя по email
-func (s *AuthService) findByEmail(email string) (*entities.UserEntity, error) {
-	return s.userRepo.FindByEmail(email)
-}
-
-// GetUserFromToken получает пользователя из token.User (для использования в handlers)
-func (s *AuthService) GetUserFromToken(tokenUser token.User) (*models.User, error) {
-	// Пытаемся получить db_user_id из attributes
-	if tokenUser.Attributes != nil {
-		if dbUserID, ok := tokenUser.Attributes["db_user_id"]; ok {
-			var userID int64
-			switch v := dbUserID.(type) {
-			case int64:
-				userID = v
-			case float64:
-				userID = int64(v)
-			case string:
-				id, err := strconv.ParseInt(v, 10, 64)
-				if err == nil {
-					userID = id
-				}
-			}
-
-			if userID > 0 {
-				return s.GetUserByID(userID)
-			}
-		}
-	}
-
-	// Если нет db_user_id, пытаемся найти по провайдеру
-	provider := s.detectProvider(tokenUser)
-	var userEntity *entities.UserEntity
-	var err error
-
-	switch provider {
-	case "telegram":
-		userEntity, err = s.userRepo.FindByTelegramID(tokenUser.ID)
-	case "google":
-		userEntity, err = s.userRepo.FindByGoogleID(tokenUser.ID)
-	case "github":
-		userEntity, err = s.userRepo.FindByGitHubID(tokenUser.ID)
-	default:
-		if tokenUser.Email != "" {
-			userEntity, err = s.userRepo.FindByEmail(tokenUser.Email)
-		}
-	}
-
+// LinkGitHubAccount связывает GitHub аккаунт с существующим пользователем
+func (s *AuthService) LinkGitHubAccount(userID int64, githubUser *GitHubUser) error {
+	userEntity, err := s.userRepo.FindUserByID(userID)
 	if err != nil {
-		return nil, fmt.Errorf("user not found")
+		return fmt.Errorf("user not found: %w", err)
 	}
 
-	return s.convertToModel(userEntity), nil
+	githubID := githubUser.Login
+
+	// Проверяем, не занят ли уже этот GitHub ID другим пользователем
+	existingUser, err := s.userRepo.FindUserByGitHubID(githubID)
+	if err == nil && existingUser.ID != userID {
+		return fmt.Errorf("GitHub account already linked to another user")
+	}
+
+	// Обновляем данные из GitHub
+	userEntity.GitHubID = &githubID
+	s.updateUserFromGitHub(userEntity, githubUser)
+
+	logger.Info("GitHub account linked", zap.Int64("user_id", userID), zap.String("github_id", githubID))
+	return s.userRepo.UpdateUser(userEntity)
+}
+
+// UnlinkGitHubAccount отвязывает GitHub аккаунт от пользователя
+func (s *AuthService) UnlinkGitHubAccount(userID int64) error {
+	userEntity, err := s.userRepo.FindUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Очищаем GitHub ID
+	userEntity.GitHubID = nil
+
+	logger.Info("GitHub account unlinked", zap.Int64("user_id", userID))
+	return s.userRepo.UpdateUser(userEntity)
+}
+
+// ============================================================================
+// OAuth методы - Google
+// ============================================================================
+
+// GetOrCreateUserFromGoogle получает или создает пользователя на основе данных Google
+func (s *AuthService) GetOrCreateUserFromGoogle(googleUser *GoogleUser) (*models.User, error) {
+	googleID := googleUser.ID
+
+	// Пытаемся найти существующего пользователя по Google ID
+	userEntity, err := s.userRepo.FindUserByGoogleID(googleID)
+	if err == nil {
+		// Пользователь найден - обновляем его данные
+		s.updateUserFromGoogle(userEntity, googleUser)
+		if updateErr := s.userRepo.UpdateUser(userEntity); updateErr != nil {
+			logger.Error("Failed to update user from Google", zap.Error(updateErr))
+		}
+
+		logger.Info("User authenticated via Google", zap.Int64("user_id", userEntity.ID))
+		return models.ConvertToModel(userEntity), nil
+	}
+
+	// Проверяем существует ли пользователь с таким email
+	if googleUser.Email != "" {
+		userEntity, err = s.userRepo.FindUserByEmail(googleUser.Email)
+		if err == nil {
+			// Пользователь с таким email уже существует - линкуем Google аккаунт
+			logger.Info("Linking Google account to existing user by email",
+				zap.Int64("user_id", userEntity.ID),
+				zap.String("email", googleUser.Email),
+				zap.String("google_id", googleUser.ID))
+
+			// Обновляем Google ID и другие данные
+			userEntity.GoogleID = &googleID
+			s.updateUserFromGoogle(userEntity, googleUser)
+
+			if updateErr := s.userRepo.UpdateUser(userEntity); updateErr != nil {
+				logger.Error("Failed to link Google account", zap.Error(updateErr))
+				return nil, fmt.Errorf("failed to link Google account: %w", updateErr)
+			}
+
+			logger.Info("Google account linked to existing user", zap.Int64("user_id", userEntity.ID))
+			return models.ConvertToModel(userEntity), nil
+		}
+	}
+
+	// Пользователь не найден - создаем нового
+	logger.Info("Creating new user from Google", zap.String("email", googleUser.Email))
+
+	userEntity = &entities.UserEntity{
+		GoogleID: &googleID,
+		Email:    &googleUser.Email,
+		Name:     googleUser.Name,
+		Role:     entities.RoleUser,
+	}
+
+	s.updateUserFromGoogle(userEntity, googleUser)
+
+	if err := s.userRepo.CreateUser(userEntity); err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	logger.Info("New user created from Google", zap.Int64("user_id", userEntity.ID))
+	return models.ConvertToModel(userEntity), nil
+}
+
+// updateUserFromGoogle обновляет entity из данных Google (только пустые поля)
+func (s *AuthService) updateUserFromGoogle(user *entities.UserEntity, googleUser *GoogleUser) {
+	// Обновляем name только если оно пустое
+	if user.Name == "" {
+		user.Name = googleUser.Name
+	}
+
+	// Email - обновляем только если пустой
+	if user.Email == nil || *user.Email == "" {
+		user.Email = &googleUser.Email
+	}
+
+	// Avatar - обновляем только если пустой
+	if user.AvatarURL == nil || *user.AvatarURL == "" {
+		if googleUser.Picture != "" {
+			user.AvatarURL = &googleUser.Picture
+		}
+	}
+
+	logger.Debug("Updated user from Google",
+		zap.String("email", googleUser.Email),
+		zap.String("name", googleUser.Name),
+		zap.Bool("verified_email", googleUser.VerifiedEmail))
+}
+
+// LinkGoogleAccount связывает Google аккаунт с существующим пользователем
+func (s *AuthService) LinkGoogleAccount(userID int64, googleUser *GoogleUser) error {
+	userEntity, err := s.userRepo.FindUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	googleID := googleUser.ID
+
+	// Проверяем, не занят ли уже этот Google ID другим пользователем
+	existingUser, err := s.userRepo.FindUserByGoogleID(googleID)
+	if err == nil && existingUser.ID != userID {
+		return fmt.Errorf("Google account already linked to another user")
+	}
+
+	// Обновляем данные из Google
+	userEntity.GoogleID = &googleID
+	s.updateUserFromGoogle(userEntity, googleUser)
+
+	logger.Info("Google account linked", zap.Int64("user_id", userID), zap.String("google_id", googleID))
+	return s.userRepo.UpdateUser(userEntity)
+}
+
+// UnlinkGoogleAccount отвязывает Google аккаунт от пользователя
+func (s *AuthService) UnlinkGoogleAccount(userID int64) error {
+	userEntity, err := s.userRepo.FindUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Очищаем Google ID
+	userEntity.GoogleID = nil
+
+	logger.Info("Google account unlinked", zap.Int64("user_id", userID))
+	return s.userRepo.UpdateUser(userEntity)
+}
+
+// ============================================================================
+// Методы для Telegram (сохранены для совместимости)
+// ============================================================================
+
+// LinkTelegramAccount связывает Telegram аккаунт с существующим пользователем
+func (s *AuthService) LinkTelegramAccount(userID int64, telegramID string, telegramData map[string]interface{}) error {
+	userEntity, err := s.userRepo.FindUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Проверяем, не занят ли уже этот Telegram ID другим пользователем
+	existingUser, err := s.userRepo.FindUserByTelegramID(telegramID)
+	if err == nil && existingUser.ID != userID {
+		return fmt.Errorf("Telegram account already linked to another user")
+	}
+
+	// Обновляем Telegram ID
+	userEntity.TelegramID = &telegramID
+
+	// Обновляем дополнительные данные из telegramData
+	if username, ok := telegramData["username"].(string); ok && username != "" {
+		userEntity.Username = &username
+	}
+	if avatarURL, ok := telegramData["photo_url"].(string); ok && avatarURL != "" {
+		userEntity.AvatarURL = &avatarURL
+	}
+	if firstName, ok := telegramData["first_name"].(string); ok {
+		lastName, _ := telegramData["last_name"].(string)
+		fullName := firstName
+		if lastName != "" {
+			fullName += " " + lastName
+		}
+		userEntity.Name = fullName
+	}
+
+	logger.Info("Telegram account linked", zap.Int64("user_id", userID), zap.String("telegram_id", telegramID))
+	return s.userRepo.UpdateUser(userEntity)
+}
+
+// UnlinkTelegramAccount отвязывает Telegram аккаунт от пользователя
+func (s *AuthService) UnlinkTelegramAccount(userID int64) error {
+	userEntity, err := s.userRepo.FindUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("user not found: %w", err)
+	}
+
+	// Очищаем Telegram ID
+	userEntity.TelegramID = nil
+
+	logger.Info("Telegram account unlinked", zap.Int64("user_id", userID))
+	return s.userRepo.UpdateUser(userEntity)
 }

@@ -170,6 +170,79 @@
             color: #333;
         }
 
+        .accounts-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .accounts-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .account-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .account-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .account-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .not-connected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .small-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .edit-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .edit-btn:hover {
+            background: #5568d3;
+        }
+
         .logout-btn {
             background: #ff4757;
             margin-top: 20px;
@@ -241,19 +314,19 @@
 
         <div id="auth-section" class="auth-section">
             <div class="auth-buttons">
-                <a href="/auth/telegram/login" class="auth-btn telegram-btn">
+                <a href="/auth/telegram/login?from=/" class="auth-btn telegram-btn">
                     <span>✈️</span>
                     Войти через Telegram
                 </a>
 
                 <div class="divider"><span>или</span></div>
 
-                <a href="/auth/google/login" class="auth-btn google-btn">
+                <a href="/auth/google/login?from=/" class="auth-btn google-btn">
                     <span>G</span>
                     Войти через Google
                 </a>
 
-                <a href="/auth/github/login" class="auth-btn github-btn">
+                <a href="/auth/github/login?from=/" class="auth-btn github-btn">
                     <span>⚡</span>
                     Войти через GitHub
                 </a>
@@ -280,10 +353,45 @@
                     <span class="user-detail-label">Username:</span>
                     <span class="user-detail-value" id="user-username"></span>
                 </div>
+                <div class="user-detail" id="description-row" style="display: none;">
+                    <span class="user-detail-label">Описание:</span>
+                    <span class="user-detail-value" id="user-description"></span>
+                </div>
                 <div class="user-detail">
                     <span class="user-detail-label">Дата регистрации:</span>
                     <span class="user-detail-value" id="user-created"></span>
                 </div>
+            </div>
+
+            <div class="accounts-section">
+                <div class="accounts-title">Связанные аккаунты</div>
+                <div id="accounts-list">
+                    <div class="account-item">
+                        <div class="account-badge">
+                            <span>⚡</span>
+                            <span>GitHub</span>
+                        </div>
+                        <span id="github-status" class="account-status not-connected">Не подключен</span>
+                    </div>
+                    <div class="account-item">
+                        <div class="account-badge">
+                            <span>G</span>
+                            <span>Google</span>
+                        </div>
+                        <span id="google-status" class="account-status not-connected">Не подключен</span>
+                    </div>
+                    <div class="account-item">
+                        <div class="account-badge">
+                            <span>✈️</span>
+                            <span>Telegram</span>
+                        </div>
+                        <span id="telegram-status" class="account-status not-connected">Не подключен</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="small-btn edit-btn" onclick="testAPI()">Тест API</button>
             </div>
 
             <button class="auth-btn logout-btn" onclick="logout()">Выйти</button>
@@ -355,9 +463,33 @@
                 document.getElementById('username-row').style.display = 'none';
             }
 
+            // Description (если есть)
+            if (user.Description) {
+                document.getElementById('user-description').textContent = user.Description;
+                document.getElementById('description-row').style.display = 'flex';
+            } else {
+                document.getElementById('description-row').style.display = 'none';
+            }
+
             // Дата регистрации
             const createdDate = new Date(user.CreatedAt);
             document.getElementById('user-created').textContent = createdDate.toLocaleDateString('ru-RU');
+
+            // Обновляем статусы связанных аккаунтов
+            updateAccountStatus('github', user.GitHubID);
+            updateAccountStatus('google', user.GoogleID);
+            updateAccountStatus('telegram', user.TelegramID);
+        }
+
+        function updateAccountStatus(provider, accountId) {
+            const statusElement = document.getElementById(provider + '-status');
+            if (accountId) {
+                statusElement.textContent = 'Подключен: ' + accountId;
+                statusElement.className = 'account-status connected';
+            } else {
+                statusElement.textContent = 'Не подключен';
+                statusElement.className = 'account-status not-connected';
+            }
         }
 
         function showAuthButtons() {
@@ -384,6 +516,33 @@
             setTimeout(() => {
                 errorElement.style.display = 'none';
             }, 5000);
+        }
+
+        async function testAPI() {
+            console.log('=== Testing API ===');
+            
+            try {
+                // Test 1: Get current user
+                console.log('Test 1: GET /api/v1/me');
+                const meResponse = await fetch('/api/v1/me', {
+                    credentials: 'include'
+                });
+                const meData = await meResponse.json();
+                console.log('Current user:', meData);
+
+                // Test 2: Get user by ID (public endpoint)
+                if (meData.user && meData.user.ID) {
+                    console.log('Test 2: GET /api/v1/public/users/' + meData.user.ID);
+                    const userResponse = await fetch('/api/v1/public/users/' + meData.user.ID);
+                    const userData = await userResponse.json();
+                    console.log('User by ID:', userData);
+                }
+
+                alert('API тесты выполнены! Проверьте консоль (F12) для деталей');
+            } catch (error) {
+                console.error('API test error:', error);
+                alert('Ошибка при тестировании API: ' + error.message);
+            }
         }
 
         // Запускаем проверку авторизации

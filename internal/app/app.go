@@ -19,7 +19,6 @@ import (
 
 func Run() error {
 	// Загружаем конфигурацию
-
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -41,12 +40,24 @@ func Run() error {
 	// DATA LAYER
 	userRepo := repositories.NewUserRepository(db)
 	logger.Info("Initializing UserRepo...")
+	
 	// BUSINESS LAYER
-	authService := services.NewAuthService(userRepo)
+	authService := services.NewAuthService(userRepo, cfg.Auth.Secret)
 	logger.Info("Initializing AuthService...")
-	// PRESENTATION LAYER - с интеграцией go-pkgz/auth
-	router, _ := routes.SetupRoutes(cfg, authService)
-	logger.Info("Initializing Services...")
+	
+	// OAuth Service
+	oauthService := services.NewOAuthService(
+		cfg.Auth.GitHub.ClientID,
+		cfg.Auth.GitHub.ClientSecret,
+		cfg.Auth.Google.ClientID,
+		cfg.Auth.Google.ClientSecret,
+		cfg.Server.PublicURL,
+	)
+	logger.Info("Initializing OAuthService...")
+	
+	// PRESENTATION LAYER
+	router := routes.SetupRoutes(cfg, authService, oauthService)
+	logger.Info("Initializing Routes...")
 
 	// HTTP сервер
 	server := &http.Server{
@@ -56,7 +67,9 @@ func Run() error {
 
 	// Запускаем сервер в горутине
 	go func() {
-		logger.Info("Initializing Server on " + server.Addr)
+		logger.Info("Server starting",
+			zap.String("url", fmt.Sprintf("http://%s", server.Addr)),
+			zap.String("address", server.Addr))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Failed to start server:", zap.Error(err))
 		}
