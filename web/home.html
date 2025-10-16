@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITPATH - Тренажёр для подготовки к техническим собеседованиям</title>
+    <link rel="stylesheet" href="css/home.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <a href="home.html" class="logo">ITPATH</a>
+            <nav>
+                <a href="#features">Возможности</a>
+                <a href="#questions">Вопросы с собеседований</a>
+                <a href="#" class="btn-premium">Премиум</a>
+                <a href="index.html" class="btn-login" id="auth-btn">Войти</a>
+                <button class="theme-toggle">🌙</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <h1>
+                Тренажёр<br>
+                для подготовки
+                <span class="hero-highlight">к техническим собеседованиям</span>
+            </h1>
+            <a href="index.html" class="hero-btn">Подготовиться к собеседованию</a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="container" id="features">
+        <h2 class="section-title">Возможности</h2>
+        <p class="section-subtitle">Всё, что нужно для быстрой подготовки к собеседованию</p>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">💻</div>
+                <h3 class="feature-title">Задачи на код</h3>
+                <p class="feature-description">Решайте задачи на код в нашей песочнице и проверяйте свои навыки в программировании</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3 class="feature-title">Тренажер собеседований</h3>
+                <p class="feature-description">Отвечайте на вопросы и получайте аналитику по собеседованию. Найдите свои слабые и сильные места</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <h3 class="feature-title">База вопросов</h3>
+                <p class="feature-description">Изучайте нужные вам технологии. Отвечайте на вопросы и отслеживайте свой прогресс</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🗺️</div>
+                <h3 class="feature-title">Роадмапы</h3>
+                <p class="feature-description">Прокачивайте свои знания в роадмапах постепенно, отслеживайте свой прогресс</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack Section -->
+    <div class="container">
+        <div class="tech-section">
+            <h2 class="tech-title">Изучайте технологии в нашей базе вопросов</h2>
+            <div class="tech-tags">
+                <div class="tech-tag">🐍 Python</div>
+                <div class="tech-tag">☕ Java</div>
+                <div class="tech-tag">#️⃣ C#</div>
+                <div class="tech-tag">➕ C++</div>
+                <div class="tech-tag">🔵 Golang</div>
+                <div class="tech-tag">📜 JavaScript</div>
+                <div class="tech-tag">📄 HTML</div>
+                <div class="tech-tag">🎨 CSS</div>
+                <div class="tech-tag">🗄️ SQL</div>
+                <div class="tech-tag">📦 Git</div>
+                <div class="tech-tag">🐳 Docker</div>
+                <div class="tech-tag">💻 Computer Science</div>
+                <div class="tech-tag">💼 Вопросы рекрутеров</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popular Questions Section -->
+    <section class="container popular-section" id="questions">
+        <h2 class="section-title">Повторяйте самые популярные вопросы на собеседованиях</h2>
+        <p class="section-subtitle">Быстро освежайте знания, через наши подборки вопросов</p>
+
+        <div class="language-cards">
+            <div class="language-card">
+                <div class="language-header">
+                    <div class="language-icon">🐍</div>
+                    <h3 class="language-name">Python</h3>
+                </div>
+                <p class="language-description">Часто задаваемые вопросы, ответы на которые обязан знать каждый Python разработчик</p>
+                <button class="language-btn" onclick="window.location.href='index.html'">Перейти к вопросам</button>
+            </div>
+
+            <div class="language-card">
+                <div class="language-header">
+                    <div class="language-icon">☕</div>
+                    <h3 class="language-name">Java</h3>
+                </div>
+                <p class="language-description">Лучшие вопросы по Java для подготовки к собеседованиям и изучения</p>
+                <button class="language-btn" onclick="window.location.href='index.html'">Перейти к вопросам</button>
+            </div>
+
+            <div class="language-card">
+                <div class="language-header">
+                    <div class="language-icon">🔵</div>
+                    <h3 class="language-name">Golang</h3>
+                </div>
+                <p class="language-description">Список популярных вопросов по Go для подготовки к техническим интервью</p>
+                <button class="language-btn" onclick="window.location.href='index.html'">Перейти к вопросам</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 ITPATH. Все права защищены.</p>
+        <p>Тренажёр для подготовки к техническим собеседованиям</p>
+        <p><a href="#">Политика конфиденциальности</a> | <a href="#">Условия использования</a></p>
+    </footer>
+
+    <script src="js/home.js"></script>
+</body>
+</html>

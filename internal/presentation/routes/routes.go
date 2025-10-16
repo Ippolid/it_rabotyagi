@@ -54,9 +54,13 @@ func setupMiddleware(router *gin.Engine) {
 	})
 }
 
-// setupStaticFiles настраивает раздачу статических файлов
+// setupStaticFiles настраивает раздачу статических файлов (только для локальной разработки без Nginx)
 func setupStaticFiles(router *gin.Engine) {
+	// В продакшене статику раздает Nginx
+	// Эти роуты нужны только для локальной разработки без Docker
 	router.Static("/web", "./web")
+	router.Static("/css", "./web/css")
+	router.Static("/js", "./web/js")
 	router.GET("/", func(c *gin.Context) {
 		c.File("./web/index.html")
 	})

@@ -3,550 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ITPath - Авторизация</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-        }
-
-        .logo {
-            font-size: 48px;
-            margin-bottom: 10px;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
-        }
-
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-
-        .auth-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .auth-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 15px 20px;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            color: white;
-            gap: 10px;
-        }
-
-        .auth-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .telegram-btn {
-            background: #0088cc;
-        }
-
-        .telegram-btn:hover {
-            background: #006699;
-        }
-
-        .google-btn {
-            background: #4285f4;
-        }
-
-        .google-btn:hover {
-            background: #357ae8;
-        }
-
-        .github-btn {
-            background: #333;
-        }
-
-        .github-btn:hover {
-            background: #000;
-        }
-
-        .user-info {
-            display: none;
-            animation: fadeIn 0.5s;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .user-avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            margin: 0 auto 20px;
-            border: 4px solid #667eea;
-            object-fit: cover;
-        }
-
-        .user-name {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .user-email {
-            color: #666;
-            margin-bottom: 5px;
-        }
-
-        .user-role {
-            display: inline-block;
-            padding: 5px 15px;
-            background: #667eea;
-            color: white;
-            border-radius: 20px;
-            font-size: 12px;
-            margin: 10px 0;
-        }
-
-        .user-details {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: left;
-        }
-
-        .user-detail {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        .user-detail-label {
-            color: #666;
-            font-weight: 500;
-        }
-
-        .user-detail-value {
-            color: #333;
-        }
-
-        .accounts-section {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .accounts-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .account-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .account-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .account-status {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .connected {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .not-connected {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .small-btn {
-            padding: 8px 16px;
-            font-size: 14px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .edit-btn {
-            background: #667eea;
-            color: white;
-        }
-
-        .edit-btn:hover {
-            background: #5568d3;
-        }
-
-        .logout-btn {
-            background: #ff4757;
-            margin-top: 20px;
-        }
-
-        .logout-btn:hover {
-            background: #ff3838;
-        }
-
-        .loading {
-            display: none;
-            margin: 20px 0;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error {
-            color: #ff4757;
-            margin-top: 20px;
-            display: none;
-            padding: 10px;
-            background: #ffe5e5;
-            border-radius: 5px;
-        }
-
-        .divider {
-            margin: 20px 0;
-            text-align: center;
-            position: relative;
-        }
-
-        .divider::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 50%;
-            height: 1px;
-            background: #ddd;
-        }
-
-        .divider span {
-            background: white;
-            padding: 0 10px;
-            position: relative;
-            color: #999;
-            font-size: 14px;
-        }
-    </style>
+    <title>ITPATH - Вход</title>
+    <link rel="stylesheet" href="css/login.css">
 </head>
 <body>
-    <div class="container">
-        <div class="logo">🚀</div>
-        <h1>ITPath</h1>
-        <p class="subtitle">Платформа для изучения IT</p>
+    <a href="home.html" class="back-btn">← Главная</a>
 
-        <div id="auth-section" class="auth-section">
-            <div class="auth-buttons">
-                <a href="/auth/telegram/login?from=/" class="auth-btn telegram-btn">
-                    <span>✈️</span>
-                    Войти через Telegram
-                </a>
+    <div class="login-container">
+        <div class="logo">💡</div>
 
-                <div class="divider"><span>или</span></div>
+        <h1>Подготовка к собеседованию</h1>
+        <p class="subtitle">Решайте задачи и вопросы с реальных собеседований</p>
 
-                <a href="/auth/google/login?from=/" class="auth-btn google-btn">
-                    <span>G</span>
-                    Войти через Google
-                </a>
+        <!-- Сообщение об успешной авторизации -->
+        <div id="auth-message" class="auth-message" style="display: none;"></div>
 
-                <a href="/auth/github/login?from=/" class="auth-btn github-btn">
-                    <span>⚡</span>
-                    Войти через GitHub
-                </a>
+        <!-- Информация о пользователе (если авторизован) -->
+        <div id="user-info" class="user-info" style="display: none;">
+            <div class="user-avatar">
+                <img id="user-avatar-img" src="" alt="Avatar">
             </div>
+            <h2 id="user-name">Loading...</h2>
+            <p id="user-email"></p>
+            <div class="user-providers">
+                <span id="github-badge" class="provider-badge" style="display: none;">⚫ GitHub</span>
+                <span id="google-badge" class="provider-badge" style="display: none;">🔵 Google</span>
+                <span id="telegram-badge" class="provider-badge" style="display: none;">✈️ Telegram</span>
+            </div>
+            <button onclick="logout()" class="logout-btn">Выйти</button>
         </div>
 
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>Загрузка...</p>
+        <!-- Кнопки авторизации (если не авторизован) -->
+        <div id="auth-buttons" class="auth-buttons">
+            <a href="/auth/github/login" class="auth-btn">
+                <span class="auth-icon">⚫</span>
+                Войти через GitHub
+            </a>
+
+            <a href="/auth/google/login" class="auth-btn">
+                <span class="auth-icon">🔵</span>
+                Войти через Google
+            </a>
+
+            <div class="divider">или</div>
+
+            <button class="auth-btn email-btn" onclick="alert('Email авторизация в разработке')">
+                <span class="auth-icon">📧</span>
+                Войти через почту
+            </button>
         </div>
 
-        <div id="user-info" class="user-info">
-            <img id="user-avatar" class="user-avatar" src="" alt="Avatar">
-            <div class="user-name" id="user-name"></div>
-            <div class="user-email" id="user-email"></div>
-            <div class="user-role" id="user-role"></div>
-
-            <div class="user-details" id="user-details">
-                <div class="user-detail">
-                    <span class="user-detail-label">ID:</span>
-                    <span class="user-detail-value" id="user-id"></span>
-                </div>
-                <div class="user-detail" id="username-row" style="display: none;">
-                    <span class="user-detail-label">Username:</span>
-                    <span class="user-detail-value" id="user-username"></span>
-                </div>
-                <div class="user-detail" id="description-row" style="display: none;">
-                    <span class="user-detail-label">Описание:</span>
-                    <span class="user-detail-value" id="user-description"></span>
-                </div>
-                <div class="user-detail">
-                    <span class="user-detail-label">Дата регистрации:</span>
-                    <span class="user-detail-value" id="user-created"></span>
-                </div>
-            </div>
-
-            <div class="accounts-section">
-                <div class="accounts-title">Связанные аккаунты</div>
-                <div id="accounts-list">
-                    <div class="account-item">
-                        <div class="account-badge">
-                            <span>⚡</span>
-                            <span>GitHub</span>
-                        </div>
-                        <span id="github-status" class="account-status not-connected">Не подключен</span>
-                    </div>
-                    <div class="account-item">
-                        <div class="account-badge">
-                            <span>G</span>
-                            <span>Google</span>
-                        </div>
-                        <span id="google-status" class="account-status not-connected">Не подключен</span>
-                    </div>
-                    <div class="account-item">
-                        <div class="account-badge">
-                            <span>✈️</span>
-                            <span>Telegram</span>
-                        </div>
-                        <span id="telegram-status" class="account-status not-connected">Не подключен</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="action-buttons">
-                <button class="small-btn edit-btn" onclick="testAPI()">Тест API</button>
-            </div>
-
-            <button class="auth-btn logout-btn" onclick="logout()">Выйти</button>
-        </div>
-
-        <div id="error" class="error"></div>
+        <p class="footer-text">
+            Авторизуясь, вы принимаете <a href="#">правила</a> сервиса
+        </p>
     </div>
 
-    <script>
-        // Проверяем авторизацию при загрузке страницы
-        async function checkAuth() {
-            try {
-                document.getElementById('loading').style.display = 'block';
-                document.getElementById('auth-section').style.display = 'none';
-
-                const response = await fetch('/api/v1/me', {
-                    credentials: 'include'
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success && data.user) {
-                        showUserInfo(data.user);
-                    } else {
-                        showAuthButtons();
-                    }
-                } else {
-                    showAuthButtons();
-                }
-            } catch (error) {
-                console.error('Error checking auth:', error);
-                showAuthButtons();
-            } finally {
-                document.getElementById('loading').style.display = 'none';
-            }
-        }
-
-        function showUserInfo(user) {
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('user-info').style.display = 'block';
-
-            // Устанавливаем аватар
-            const avatar = user.AvatarURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.Name) + '&size=100&background=667eea&color=fff';
-            document.getElementById('user-avatar').src = avatar;
-
-            // Устанавливаем имя
-            document.getElementById('user-name').textContent = user.Name || 'Пользователь';
-
-            // Устанавливаем email
-            const emailElement = document.getElementById('user-email');
-            if (user.Email) {
-                emailElement.textContent = user.Email;
-                emailElement.style.display = 'block';
-            } else {
-                emailElement.style.display = 'none';
-            }
-
-            // Устанавливаем роль
-            document.getElementById('user-role').textContent = user.Role || 'user';
-
-            // Устанавливаем дополнительные детали
-            document.getElementById('user-id').textContent = user.ID;
-
-            // Username (если есть)
-            if (user.Username) {
-                document.getElementById('user-username').textContent = user.Username;
-                document.getElementById('username-row').style.display = 'flex';
-            } else {
-                document.getElementById('username-row').style.display = 'none';
-            }
-
-            // Description (если есть)
-            if (user.Description) {
-                document.getElementById('user-description').textContent = user.Description;
-                document.getElementById('description-row').style.display = 'flex';
-            } else {
-                document.getElementById('description-row').style.display = 'none';
-            }
-
-            // Дата регистрации
-            const createdDate = new Date(user.CreatedAt);
-            document.getElementById('user-created').textContent = createdDate.toLocaleDateString('ru-RU');
-
-            // Обновляем статусы связанных аккаунтов
-            updateAccountStatus('github', user.GitHubID);
-            updateAccountStatus('google', user.GoogleID);
-            updateAccountStatus('telegram', user.TelegramID);
-        }
-
-        function updateAccountStatus(provider, accountId) {
-            const statusElement = document.getElementById(provider + '-status');
-            if (accountId) {
-                statusElement.textContent = 'Подключен: ' + accountId;
-                statusElement.className = 'account-status connected';
-            } else {
-                statusElement.textContent = 'Не подключен';
-                statusElement.className = 'account-status not-connected';
-            }
-        }
-
-        function showAuthButtons() {
-            document.getElementById('auth-section').style.display = 'block';
-            document.getElementById('user-info').style.display = 'none';
-        }
-
-        async function logout() {
-            try {
-                await fetch('/auth/logout', {
-                    credentials: 'include'
-                });
-                window.location.reload();
-            } catch (error) {
-                console.error('Error logging out:', error);
-                showError('Ошибка при выходе');
-            }
-        }
-
-        function showError(message) {
-            const errorElement = document.getElementById('error');
-            errorElement.textContent = message;
-            errorElement.style.display = 'block';
-            setTimeout(() => {
-                errorElement.style.display = 'none';
-            }, 5000);
-        }
-
-        async function testAPI() {
-            console.log('=== Testing API ===');
-            
-            try {
-                // Test 1: Get current user
-                console.log('Test 1: GET /api/v1/me');
-                const meResponse = await fetch('/api/v1/me', {
-                    credentials: 'include'
-                });
-                const meData = await meResponse.json();
-                console.log('Current user:', meData);
-
-                // Test 2: Get user by ID (public endpoint)
-                if (meData.user && meData.user.ID) {
-                    console.log('Test 2: GET /api/v1/public/users/' + meData.user.ID);
-                    const userResponse = await fetch('/api/v1/public/users/' + meData.user.ID);
-                    const userData = await userResponse.json();
-                    console.log('User by ID:', userData);
-                }
-
-                alert('API тесты выполнены! Проверьте консоль (F12) для деталей');
-            } catch (error) {
-                console.error('API test error:', error);
-                alert('Ошибка при тестировании API: ' + error.message);
-            }
-        }
-
-        // Запускаем проверку авторизации
-        checkAuth();
-    </script>
+    <script src="js/auth.js"></script>
 </body>
 </html>

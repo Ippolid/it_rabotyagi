@@ -72,13 +72,28 @@ services:
     restart: always
     env_file:
       - .env # Загружаем переменные окружения из .env файла
-    ports:
-      - "${SERVER_PORT}:${SERVER_PORT}" # Пробрасывает порт приложения (например, 8080:8080)
+    expose:
+      - "8080" # Не пробрасываем наружу, только внутри сети
     depends_on:
       pg-local:
         condition: service_healthy
       migrator-local:
         condition: service_completed_successfully
+    networks:
+      - itpath-network
+
+  # 4. Nginx - веб-сервер для статики и reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: itpath_nginx
+    restart: always
+    ports:
+      - "${SERVER_PORT:-8080}:80" # Пробрасываем порт наружу
+    volumes:
+      - ../web:/usr/share/nginx/html:ro # Монтируем статические файлы (readonly)
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro # Конфигурация nginx (главный файл!)
+    depends_on:
+      - app
     networks:
       - itpath-network
 
