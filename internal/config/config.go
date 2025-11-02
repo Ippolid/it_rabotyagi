@@ -9,7 +9,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Auth     AuthConfig
-	Logger LoggerConfig
+	Logger   LoggerConfig
 }
 
 type ServerConfig struct {
@@ -30,23 +30,6 @@ type AuthConfig struct {
 	Secret          string
 	TokenDuration   int // в минутах
 	RefreshDuration int // в минутах
-	Telegram        TelegramConfig
-	Google          GoogleConfig
-	GitHub          GitHubConfig
-}
-
-type TelegramConfig struct {
-	Token string
-}
-
-type GoogleConfig struct {
-	ClientID     string
-	ClientSecret string
-}
-
-type GitHubConfig struct {
-	ClientID     string
-	ClientSecret string
 }
 
 func Load() (*Config, error) {
@@ -61,19 +44,8 @@ func Load() (*Config, error) {
 		},
 		Auth: AuthConfig{
 			Secret:          getEnv("JWT_SECRET", ""),
-			TokenDuration:   60,   // 1 час
-			RefreshDuration: 4320, // 3 дня
-			Telegram: TelegramConfig{
-				Token: getEnv("TELEGRAM_BOT_TOKEN", ""),
-			},
-			Google: GoogleConfig{
-				ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
-				ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
-			},
-			GitHub: GitHubConfig{
-				ClientID:     getEnv("GITHUB_CLIENT_ID", ""),
-				ClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
-			},
+			TokenDuration:   60,    // 1 час
+			RefreshDuration: 43200, // 30 дней
 		},
 		Logger: LoggerConfig{
 			Level: getEnv("LOGGER_LEVEL", "info"),

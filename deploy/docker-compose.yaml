@@ -1,30 +1,8 @@
-#volumes:
-#  postgres_volume:
-#
-#services:
-#  pg-local:
-#    image: postgres:14-alpine3.17
-#    environment:
-#      - POSTGRES_DB=${PG_DATABASE_NAME}
-#      - POSTGRES_USER=${PG_USER}
-#      - POSTGRES_PASSWORD=${PG_PASSWORD}
-#    ports:
-#      - "${PG_PORT}:5432"
-#    volumes:
-#      - postgres_volume:/var/lib/postgresql/data
-#
-#  migrator-local:
-#    build:
-#      context: ..
-#      dockerfile: deploy/migration.Dockerfile
-#    restart: on-failure
-#    environment:
-#      - DB_HOST=pg-local
 services:
   # 1. Сервис базы данных PostgreSQL
   pg-local:
     image: postgres:17-alpine
-    container_name: itpath_postgres
+    container_name: it_rabotyagi_postgres
     restart: always
     environment:
       POSTGRES_DB: ${PG_DATABASE_NAME}
@@ -35,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - itpath-network
+      - it_rabotyagi-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DATABASE_NAME}"]
       interval: 10s
@@ -48,7 +26,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/migration.Dockerfile
-    container_name: itpath_migrator
+    container_name: it_rabotyagi_migrator
     depends_on:
       pg-local:
         condition: service_healthy
@@ -61,45 +39,49 @@ services:
       - PG_PASSWORD=${PG_PASSWORD}
       - MIGRATION_DIR=${MIGRATION_DIR}
     networks:
-      - itpath-network
+      - it_rabotyagi-network
 
   # 3. Сервис основного приложения
   app:
     build:
       context: .. # Контекст сборки - корневая папка проекта
       dockerfile: deploy/Dockerfile # Путь к Dockerfile относительно контекста
-    container_name: itpath_app
+    container_name: it_rabotyagi_app
     restart: always
-    env_file:
-      - .env # Загружаем переменные окружения из .env файла
-    expose:
-      - "8080" # Не пробрасываем наружу, только внутри сети
+    ports:
+      - "${SERVER_PORT:-8080}:8080" # Пробрасываем порт для доступа к API и Swagger
+    environment:
+      - DATABASE_URL=postgres://${PG_USER}:${PG_PASSWORD}@pg-local:5432/${PG_DATABASE_NAME}?sslmode=disable
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+      - SERVER_PORT=8080
+      - HTTP_HOST=0.0.0.0
+      - LOGGER_LEVEL=info
     depends_on:
       pg-local:
         condition: service_healthy
       migrator-local:
         condition: service_completed_successfully
     networks:
-      - itpath-network
-
-  # 4. Nginx - веб-сервер для статики и reverse proxy
-  nginx:
-    image: nginx:alpine
-    container_name: itpath_nginx
-    restart: always
-    ports:
-      - "${SERVER_PORT:-8080}:80" # Пробрасываем порт наружу
-    volumes:
-      - ../web:/usr/share/nginx/html:ro # Монтируем статические файлы (readonly)
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro # Конфигурация nginx (главный файл!)
-    depends_on:
-      - app
-    networks:
-      - itpath-network
+      - it_rabotyagi-network
+#
+#  # 4. Nginx - веб-сервер для статики и reverse proxy
+#  nginx:
+#    image: nginx:alpine
+#    container_name: it_rabotyagi_nginx
+#    restart: always
+#    ports:
+#      - "${SERVER_PORT:-8080}:80" # Пробрасываем порт наружу
+#    volumes:
+#      - ../web:/usr/share/nginx/html:ro # Монтируем статические файлы (readonly)
+#      - ./nginx.conf:/etc/nginx/nginx.conf:ro # Конфигурация nginx (главный файл!)
+#    depends_on:
+#      - app
+#    networks:
+#      - it_rabotyagi-network
 
 # Определяем общую сеть для взаимодействия сервисов
 networks:
-  itpath-network:
+  it_rabotyagi-network:
     driver: bridge
 
 # Определяем том для хранения данных PostgreSQL

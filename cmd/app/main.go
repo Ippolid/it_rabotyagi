@@ -1,7 +1,7 @@
 package main
 
 import (
-	"itpath/internal/app"
+	"it_rabotyagi/internal/app"
 	"log"
 )
 

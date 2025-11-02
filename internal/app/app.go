@@ -4,17 +4,18 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
-	"itpath/internal/business/services"
-	"itpath/internal/config"
-	"itpath/internal/data/database"
-	"itpath/internal/data/repositories"
-	"itpath/internal/logger"
-	"itpath/internal/presentation/routes"
-	"net/http"
+	"it_rabotyagi/internal/business/services"
+	"it_rabotyagi/internal/config"
+	"it_rabotyagi/internal/data/database"
+	"it_rabotyagi/internal/data/repositories"
+	"it_rabotyagi/internal/logger"
+	"it_rabotyagi/internal/server"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/labstack/echo/v4"
 )
 
 func Run() error {
@@ -39,38 +40,31 @@ func Run() error {
 	// Инициализируем зависимости слой за слоем
 	// DATA LAYER
 	userRepo := repositories.NewUserRepository(db)
-	logger.Info("Initializing UserRepo...")
-	
+	sessionRepo := repositories.NewSessionRepository(db)
+	logger.Info("Initializing UserRepo and SessionRepo...")
+
 	// BUSINESS LAYER
-	authService := services.NewAuthService(userRepo, cfg.Auth.Secret)
+	authService := services.NewAuthService(cfg.Auth.Secret, cfg.Auth.TokenDuration, cfg.Auth.RefreshDuration)
 	logger.Info("Initializing AuthService...")
-	
-	// OAuth Service
-	oauthService := services.NewOAuthService(
-		cfg.Auth.GitHub.ClientID,
-		cfg.Auth.GitHub.ClientSecret,
-		cfg.Auth.Google.ClientID,
-		cfg.Auth.Google.ClientSecret,
-		cfg.Server.PublicURL,
-	)
-	logger.Info("Initializing OAuthService...")
-	
+
 	// PRESENTATION LAYER
-	router := routes.SetupRoutes(cfg, authService, oauthService)
-	logger.Info("Initializing Routes...")
+	e := echo.New()
+	e.HideBanner = true
+	if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo); err != nil {
+		return fmt.Errorf("failed to register routes: %w", err)
+	}
+	logger.Info("Routes registered successfully...")
 
 	// HTTP сервер
-	server := &http.Server{
-		Addr:    cfg.Server.Host + ":" + cfg.Server.Port,
-		Handler: router,
-	}
+	addr := cfg.Server.Host + ":" + cfg.Server.Port
 
 	// Запускаем сервер в горутине
 	go func() {
 		logger.Info("Server starting",
-			zap.String("url", fmt.Sprintf("http://%s", server.Addr)),
-			zap.String("address", server.Addr))
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			zap.String("url", fmt.Sprintf("http://localhost:%s", cfg.Server.Port)),
+			zap.String("swagger_url", fmt.Sprintf("http://localhost:%s/api-docs/index.html", cfg.Server.Port)),
+			zap.String("address", addr))
+		if err := e.Start(addr); err != nil && err.Error() != "http: Server closed" {
 			logger.Fatal("Failed to start server:", zap.Error(err))
 		}
 	}()
@@ -85,7 +79,7 @@ func Run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := e.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 

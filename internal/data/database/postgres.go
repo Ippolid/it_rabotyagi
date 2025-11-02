@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"itpath/internal/logger"
+	"it_rabotyagi/internal/logger"
 )
 
 // DB представляет собой обертку над пулом соединений с базой данных.
