@@ -3,53 +3,66 @@ package repositories
 import (
 	"context"
 	"errors"
-	"fmt"
+	"it_rabotyagi/internal/business/models"
+	"it_rabotyagi/internal/data/database"
+
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"itpath/internal/data"
-	"itpath/internal/data/database"
-	"itpath/internal/data/entities"
-	"strings"
 )
 
-type userRepository struct {
-	db *pgxpool.Pool
+type UserRepository struct {
+	db *database.DB
 }
 
-func NewUserRepository(db *database.DB) data.UserRepository {
-	return &userRepository{
-		db: db.Pool,
+func NewUserRepository(db *database.DB) *UserRepository {
+	return &UserRepository{db: db}
+}
+
+func (u *UserRepository) CheckUser(ctx context.Context, email, username string) (*int64, error) {
+	query := "SELECT id FROM users WHERE email=$1 OR username=$2"
+	var userID int64
+	err := u.db.Pool.QueryRow(ctx, query, email, username).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Пользователь не найден - это нормально
+			return nil, nil
+		}
+		return nil, err
 	}
+	return &userID, nil
 }
 
-func (r *userRepository) CreateUser(ctx context.Context, req entities.CreateUserRequest) (*entities.UserEntity, error) {
-	query := `
-		INSERT INTO users (telegram_id, username, first_name, last_name, photo_url)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, telegram_id, username, first_name, last_name, photo_url, role, subscription, created_at, updated_at
-	`
+func (u *UserRepository) CreateUser(ctx context.Context, email, username, password string) (int, error) {
+	query := "INSERT INTO users (email, username, password, role) VALUES ($1, $2, $3, 'user') RETURNING id"
+	var userID int
+	err := u.db.Pool.QueryRow(ctx, query, email, username, password).Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
 
-	user := &entities.UserEntity{}
+// GetUserByID получает пользователя по ID
+func (u *UserRepository) GetUserByID(ctx context.Context, userID int) (*models.User, error) {
+	query := `SELECT id, username, password, email, telegram_id, google_id, github_id, 
+              name, avatar_url, description, role, created_at, updated_at 
+              FROM users WHERE id = $1`
 
-	err := r.db.QueryRow(ctx, query,
-		req.TelegramID,
-		req.Username,
-		req.FirstName,
-		req.LastName,
-		req.PhotoURL,
-	).Scan(
+	user := &models.User{}
+	err := u.db.Pool.QueryRow(ctx, query, userID).Scan(
 		&user.ID,
-		&user.TelegramID,
 		&user.Username,
-		&user.FirstName,
-		&user.LastName,
-		&user.PhotoURL,
+		&user.Password,
+		&user.Email,
+		&user.TelegramID,
+		&user.GoogleID,
+		&user.GithubID,
+		&user.Name,
+		&user.AvatarURL,
+		&user.Description,
 		&user.Role,
-		&user.Subscription,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -57,100 +70,30 @@ func (r *userRepository) CreateUser(ctx context.Context, req entities.CreateUser
 	return user, nil
 }
 
-// ИЗМЕНЕНО: теперь обновляет по telegram_id, а не по id
-func (r *userRepository) Update(ctx context.Context, telegramId int64, req entities.UpdateUserRequest) (*entities.UserEntity, error) {
-	var setClauses []string
-	var args []interface{}
-	argCount := 1
+// GetUserByEmail получает пользователя по email
+func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	query := `SELECT id, username, password, email, telegram_id, google_id, github_id, 
+              name, avatar_url, description, role, created_at, updated_at 
+              FROM users WHERE email = $1`
 
-	if req.Username != nil {
-		setClauses = append(setClauses, fmt.Sprintf("username = $%d", argCount))
-		args = append(args, *req.Username)
-		argCount++
-	}
-	if req.FirstName != nil {
-		setClauses = append(setClauses, fmt.Sprintf("first_name = $%d", argCount))
-		args = append(args, *req.FirstName)
-		argCount++
-	}
-	if req.LastName != nil {
-		setClauses = append(setClauses, fmt.Sprintf("last_name = $%d", argCount))
-		args = append(args, *req.LastName)
-		argCount++
-	}
-	if req.PhotoURL != nil {
-		setClauses = append(setClauses, fmt.Sprintf("photo_url = $%d", argCount))
-		args = append(args, *req.PhotoURL)
-		argCount++
-	}
-
-	if len(setClauses) == 0 {
-		setClauses = append(setClauses, "updated_at = NOW()")
-	} else {
-		setClauses = append(setClauses, "updated_at = NOW()")
-	}
-
-	query := fmt.Sprintf(`
-		UPDATE users
-		SET %s
-		WHERE telegram_id = $%d
-		RETURNING id, telegram_id, username, first_name, last_name, photo_url, role, subscription, created_at, updated_at
-	`, strings.Join(setClauses, ", "), argCount)
-
-	args = append(args, telegramId)
-
-	user := &entities.UserEntity{}
-
-	err := r.db.QueryRow(ctx, query, args...).Scan(
+	user := &models.User{}
+	err := u.db.Pool.QueryRow(ctx, query, email).Scan(
 		&user.ID,
-		&user.TelegramID,
 		&user.Username,
-		&user.FirstName,
-		&user.LastName,
-		&user.PhotoURL,
+		&user.Password,
+		&user.Email,
+		&user.TelegramID,
+		&user.GoogleID,
+		&user.GithubID,
+		&user.Name,
+		&user.AvatarURL,
+		&user.Description,
 		&user.Role,
-		&user.Subscription,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
-
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, entities.ErrUserNotFound
-		}
 		return nil, err
-	}
-
-	return user, nil
-}
-
-func (r *userRepository) GetByTelegramID(ctx context.Context, telegramID int64) (*entities.UserEntity, error) {
-	query := `
-		SELECT id, telegram_id, username, first_name, last_name, photo_url, role, subscription, created_at, updated_at
-		FROM users
-		WHERE telegram_id = $1
-	`
-
-	user := &entities.UserEntity{}
-
-	err := r.db.QueryRow(ctx, query, telegramID).Scan(
-		&user.ID,
-		&user.TelegramID,
-		&user.Username,
-		&user.FirstName,
-		&user.LastName,
-		&user.PhotoURL,
-		&user.Role,
-		&user.Subscription,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, entities.ErrUserNotFound
-		}
-		return nil, fmt.Errorf("failed to get user by telegram id from db: %w", err)
 	}
 
 	return user, nil

@@ -3,18 +3,19 @@ package app
 import (
 	"context"
 	"fmt"
-	"itpath/internal/business/services"
-	"itpath/internal/config"
-	"itpath/internal/data/database"
-	"itpath/internal/data/repositories"
-	"itpath/internal/pkg/jwt"
-	"itpath/internal/presentation/routes"
-	"log"
-	"net/http"
+	"go.uber.org/zap"
+	"it_rabotyagi/internal/business/services"
+	"it_rabotyagi/internal/config"
+	"it_rabotyagi/internal/data/database"
+	"it_rabotyagi/internal/data/repositories"
+	"it_rabotyagi/internal/logger"
+	"it_rabotyagi/internal/server"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/labstack/echo/v4"
 )
 
 func Run() error {
@@ -24,6 +25,9 @@ func Run() error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	logger.InitLocalLogger(cfg.Logger.Level)
+
+	logger.Info("Creating new App...")
 	// Подключаемся к базе данных
 	db, err := database.NewPostgresConnection(cfg.Database.URL)
 	if err != nil {
@@ -31,33 +35,37 @@ func Run() error {
 	}
 	defer db.Close()
 
-	// Инициализируем зависимости слой за слоем
+	logger.Info("Connected to database")
 
+	// Инициализируем зависимости слой за слоем
 	// DATA LAYER
 	userRepo := repositories.NewUserRepository(db)
+	sessionRepo := repositories.NewSessionRepository(db)
+	logger.Info("Initializing UserRepo and SessionRepo...")
 
 	// BUSINESS LAYER
-	jwtManager, err := jwt.NewTokenManager(cfg.JWT.Secret)
-	if err != nil {
-		return fmt.Errorf("failed to create jwt manager: %w", err)
-	}
-	telegramService := services.NewTelegramService(cfg.Telegram.BotToken)
-	authService := services.NewAuthService(userRepo, telegramService, jwtManager)
+	authService := services.NewAuthService(cfg.Auth.Secret, cfg.Auth.TokenDuration, cfg.Auth.RefreshDuration)
+	logger.Info("Initializing AuthService...")
 
 	// PRESENTATION LAYER
-	router := routes.SetupRoutes(authService, jwtManager)
+	e := echo.New()
+	e.HideBanner = true
+	if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo); err != nil {
+		return fmt.Errorf("failed to register routes: %w", err)
+	}
+	logger.Info("Routes registered successfully...")
 
 	// HTTP сервер
-	server := &http.Server{
-		Addr:    ":" + cfg.Server.Port,
-		Handler: router,
-	}
+	addr := cfg.Server.Host + ":" + cfg.Server.Port
 
 	// Запускаем сервер в горутине
 	go func() {
-		log.Printf("🚀 Server starting on port %s", cfg.Server.Port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Failed to start server:", err)
+		logger.Info("Server starting",
+			zap.String("url", fmt.Sprintf("http://localhost:%s", cfg.Server.Port)),
+			zap.String("swagger_url", fmt.Sprintf("http://localhost:%s/api-docs/index.html", cfg.Server.Port)),
+			zap.String("address", addr))
+		if err := e.Start(addr); err != nil && err.Error() != "http: Server closed" {
+			logger.Fatal("Failed to start server:", zap.Error(err))
 		}
 	}()
 
@@ -66,15 +74,15 @@ func Run() error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("🛑 Shutting down server...")
+	logger.Info("Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := e.Shutdown(ctx); err != nil {
 		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 
-	log.Println("✅ Server exited")
+	logger.Info("Server gracefully stopped")
 	return nil
 }

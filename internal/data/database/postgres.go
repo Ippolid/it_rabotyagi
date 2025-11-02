@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"log"
+	"it_rabotyagi/internal/logger"
 )
 
 // DB представляет собой обертку над пулом соединений с базой данных.
@@ -29,6 +29,7 @@ func NewPostgresConnection(url string) (*DB, error) {
 
 // Close закрывает все соединения в пуле.
 func (db *DB) Close() {
-	log.Println("Closing database connection pool.")
+	//log.Println("Closing database connection pool.")
+	logger.Info("Closing database connection pool.")
 	db.Pool.Close()
 }

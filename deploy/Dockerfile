@@ -24,11 +24,10 @@ WORKDIR /app
 # Копируем скомпилированный бинарный файл из этапа сборки
 COPY --from=builder /app/app .
 
-# Копируем директорию web с фронтендом из этапа сборки
-# Ваш код (r.Static("/web", "./web")) ожидает, что эта папка будет рядом с исполняемым файлом
-COPY --from=builder /app/web ./web
 
-COPY deploy/.env .
+# Копируем OpenAPI спецификацию для Swagger UI
+COPY --from=builder /app/api/openapi ./api/openapi
+
 # Открываем порт, на котором работает приложение (по умолчанию 8080)
 EXPOSE 8080
 

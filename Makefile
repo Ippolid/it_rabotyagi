@@ -3,6 +3,13 @@ LOCAL_BIN:=$(CURDIR)/bin
 LOCAL_MIGRATION_DIR=$(MIGRATION_DIR)
 LOCAL_MIGRATION_DSN="host=localhost port=$(PG_PORT) dbname=$(PG_DATABASE_NAME) user=$(PG_USER) password=$(PG_PASSWORD) sslmode=disable"
 
+
+openapi:
+	cd api/openapi && \
+	oapi-codegen -package openapi -generate types -o types.gen.go ./openapi.yaml && \
+	oapi-codegen -package openapi -generate server -o server.gen.go ./openapi.yaml && \
+	oapi-codegen -package openapi -generate client -o client.gen.go ./openapi.yaml
+	
 install-deps:
 	@if [ ! -f "$(LOCAL_BIN)/golangci-lint" ]; then \
 		echo "Installing golangci-lint..."; \
