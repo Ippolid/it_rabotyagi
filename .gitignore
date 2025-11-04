@@ -17,3 +17,9 @@ generate.go
 /cmd/auth/
 /internal/business/services/auth_service.go.backup
 /internal/presentation/handlers/auth_handler.go.backup
+
+# Frontend
+web/node_modules/
+web/dist/
+web/.vite/
+web/*.log

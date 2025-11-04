@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterRoutes регистрирует все маршруты и Swagger
-func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository) error {
+func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, courseRepo *repositories.CourseRepository) error {
 	// Middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -49,6 +49,15 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	optionalAuth := e.Group("/api/v1")
 	optionalAuth.Use(OptionalAuthMiddleware(authService))
 	optionalAuth.GET("/mentors", wrapper.ListMentors)
+
+	// Курсы (пока вне openapi, простой список опубликованных)
+	e.GET("/api/v1/courses", func(c echo.Context) error {
+		courses, err := courseRepo.ListPublished(c.Request().Context(), 12, 0)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"message": "failed to load courses"})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"items": courses})
+	})
 
 	return nil
 }

@@ -39,8 +39,9 @@ func Run() error {
 
 	// Инициализируем зависимости слой за слоем
 	// DATA LAYER
-	userRepo := repositories.NewUserRepository(db)
-	sessionRepo := repositories.NewSessionRepository(db)
+    userRepo := repositories.NewUserRepository(db)
+    sessionRepo := repositories.NewSessionRepository(db)
+    courseRepo := repositories.NewCourseRepository(db)
 	logger.Info("Initializing UserRepo and SessionRepo...")
 
 	// BUSINESS LAYER
@@ -50,7 +51,7 @@ func Run() error {
 	// PRESENTATION LAYER
 	e := echo.New()
 	e.HideBanner = true
-	if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo); err != nil {
+    if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo, courseRepo); err != nil {
 		return fmt.Errorf("failed to register routes: %w", err)
 	}
 	logger.Info("Routes registered successfully...")
