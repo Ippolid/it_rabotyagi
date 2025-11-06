@@ -22,7 +22,7 @@
     <script>
         window.onload = function() {
             window.ui = SwaggerUIBundle({
-                url: "/api-docs/openapi.yaml",
+                url: "/api-docs/openapi.yaml?v=" + new Date().getTime(),
                 dom_id: '#swagger-ui',
                 deepLinking: true,
                 presets: [

@@ -41,7 +41,8 @@ func Run() error {
 	// DATA LAYER
 	userRepo := repositories.NewUserRepository(db)
 	sessionRepo := repositories.NewSessionRepository(db)
-	logger.Info("Initializing UserRepo and SessionRepo...")
+	questionRepo := repositories.NewQuestionRepository(db.Pool)
+	logger.Info("Initializing UserRepo, SessionRepo and QuestionRepo...")
 
 	// BUSINESS LAYER
 	authService := services.NewAuthService(cfg.Auth.Secret, cfg.Auth.TokenDuration, cfg.Auth.RefreshDuration)
@@ -50,7 +51,7 @@ func Run() error {
 	// PRESENTATION LAYER
 	e := echo.New()
 	e.HideBanner = true
-	if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo); err != nil {
+	if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo, questionRepo); err != nil {
 		return fmt.Errorf("failed to register routes: %w", err)
 	}
 	logger.Info("Routes registered successfully...")
