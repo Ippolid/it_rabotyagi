@@ -17,3 +17,16 @@ generate.go
 /cmd/auth/
 /internal/business/services/auth_service.go.backup
 /internal/presentation/handlers/auth_handler.go.backup
+ 
+# Frontend (web) artifacts
+/web/node_modules/
+/web/.vite/
+/web/dist/
+/web/.cache/
+/web/.turbo/
+/web/.DS_Store
+/web/.env.local
+/web/.env
+
+# Editor settings
+/.vscode/
