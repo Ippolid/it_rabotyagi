@@ -11,6 +11,13 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
+// Defines values for QuestionDetailDifficulty.
+const (
+	Easy   QuestionDetailDifficulty = "easy"
+	Hard   QuestionDetailDifficulty = "hard"
+	Medium QuestionDetailDifficulty = "medium"
+)
+
 // AuthLoginRequest defines model for AuthLoginRequest.
 type AuthLoginRequest struct {
 	Email    openapi_types.Email `json:"email"`
@@ -72,6 +79,53 @@ type MentorList struct {
 	Total *int `json:"total,omitempty"`
 }
 
+// QuestionDetail defines model for QuestionDetail.
+type QuestionDetail struct {
+	// Content Полный текст вопроса
+	Content string `json:"content"`
+
+	// CorrectAnswer Правильный ответ
+	CorrectAnswer string `json:"correctAnswer"`
+
+	// Difficulty Уровень сложности вопроса
+	Difficulty QuestionDetailDifficulty `json:"difficulty"`
+
+	// Explanation Объяснение правильного ответа
+	Explanation *string `json:"explanation,omitempty"`
+	Id          int64   `json:"id"`
+
+	// Options Варианты ответов
+	Options []string `json:"options"`
+
+	// Technology Технология, к которой относится вопрос
+	Technology string `json:"technology"`
+
+	// Title Название вопроса
+	Title string `json:"title"`
+}
+
+// QuestionDetailDifficulty Уровень сложности вопроса
+type QuestionDetailDifficulty string
+
+// QuestionList defines model for QuestionList.
+type QuestionList struct {
+	Items []QuestionListItem `json:"items"`
+
+	// Total Общее количество доступных вопросов
+	Total *int `json:"total,omitempty"`
+}
+
+// QuestionListItem defines model for QuestionListItem.
+type QuestionListItem struct {
+	Id int64 `json:"id"`
+
+	// Technology Технология, к которой относится вопрос
+	Technology string `json:"technology"`
+
+	// Title Название вопроса
+	Title string `json:"title"`
+}
+
 // UserProfile defines model for UserProfile.
 type UserProfile struct {
 	Email    openapi_types.Email `json:"email"`
@@ -88,6 +142,9 @@ type BadRequest = ErrorResponse
 // Conflict defines model for Conflict.
 type Conflict = ErrorResponse
 
+// NotFound defines model for NotFound.
+type NotFound = ErrorResponse
+
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
 
@@ -97,6 +154,18 @@ type ListMentorsParams struct {
 	Specialization *string `form:"specialization,omitempty" json:"specialization,omitempty"`
 
 	// Limit Количество карточек в выдаче
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Смещение для постраничной навигации
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListQuestionsParams defines parameters for ListQuestions.
+type ListQuestionsParams struct {
+	// Technology Фильтр по технологии
+	Technology *string `form:"technology,omitempty" json:"technology,omitempty"`
+
+	// Limit Количество вопросов в выдаче
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Offset Смещение для постраничной навигации

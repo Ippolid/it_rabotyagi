@@ -25,6 +25,12 @@ type ServerInterface interface {
 	// Получить список менторов
 	// (GET /mentors)
 	ListMentors(ctx echo.Context, params ListMentorsParams) error
+	// Получить список всех вопросов
+	// (GET /questions)
+	ListQuestions(ctx echo.Context, params ListQuestionsParams) error
+	// Получить вопрос по ID
+	// (GET /questions/{id})
+	GetQuestionById(ctx echo.Context, id int64) error
 	// Получить профиль текущего пользователя
 	// (GET /users/me)
 	GetCurrentUser(ctx echo.Context) error
@@ -94,6 +100,54 @@ func (w *ServerInterfaceWrapper) ListMentors(ctx echo.Context) error {
 	return err
 }
 
+// ListQuestions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListQuestions(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListQuestionsParams
+	// ------------- Optional query parameter "technology" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "technology", ctx.QueryParams(), &params.Technology)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter technology: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListQuestions(ctx, params)
+	return err
+}
+
+// GetQuestionById converts echo context to params.
+func (w *ServerInterfaceWrapper) GetQuestionById(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetQuestionById(ctx, id)
+	return err
+}
+
 // GetCurrentUser converts echo context to params.
 func (w *ServerInterfaceWrapper) GetCurrentUser(ctx echo.Context) error {
 	var err error
@@ -137,6 +191,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/auth/refresh", wrapper.RefreshTokens)
 	router.POST(baseURL+"/auth/register", wrapper.RegisterUser)
 	router.GET(baseURL+"/mentors", wrapper.ListMentors)
+	router.GET(baseURL+"/questions", wrapper.ListQuestions)
+	router.GET(baseURL+"/questions/:id", wrapper.GetQuestionById)
 	router.GET(baseURL+"/users/me", wrapper.GetCurrentUser)
 
 }

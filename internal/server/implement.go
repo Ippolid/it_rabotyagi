@@ -15,16 +15,18 @@ import (
 
 // ServerImplementation реализует интерфейс openapi.ServerInterface
 type ServerImplementation struct {
-	authService *services.AuthService
-	repo        *repositories.UserRepository
-	sessionRepo *repositories.SessionRepository
+	authService  *services.AuthService
+	repo         *repositories.UserRepository
+	sessionRepo  *repositories.SessionRepository
+	questionRepo *repositories.QuestionRepository
 }
 
-func NewServerImplementation(authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository) *ServerImplementation {
+func NewServerImplementation(authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository) *ServerImplementation {
 	return &ServerImplementation{
-		authService: authService,
-		repo:        repo,
-		sessionRepo: sessionRepo,
+		authService:  authService,
+		repo:         repo,
+		sessionRepo:  sessionRepo,
+		questionRepo: questionRepo,
 	}
 }
 
@@ -301,6 +303,74 @@ func (s *ServerImplementation) Logout(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, map[string]string{
 		"message": "Successfully logged out",
 	})
+}
+
+// ListQuestions получает список всех вопросов
+// (GET /questions)
+func (s *ServerImplementation) ListQuestions(ctx echo.Context, params openapi.ListQuestionsParams) error {
+	// Определяем лимит и оффсет
+	limit := 30 // по умолчанию
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+
+	offset := 0
+	if params.Offset != nil {
+		offset = *params.Offset
+	}
+
+	// Получаем вопросы из БД
+	questions, total, err := s.questionRepo.GetAllQuestions(ctx.Request().Context(), params.Technology, limit, offset)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to fetch questions",
+			Code:    strPtr("QUESTIONS_FETCH_ERROR"),
+		})
+	}
+
+	// Преобразуем в формат OpenAPI
+	items := make([]openapi.QuestionListItem, 0, len(questions))
+	for _, q := range questions {
+		items = append(items, openapi.QuestionListItem{
+			Id:         q.ID,
+			Title:      q.Title,
+			Technology: q.Technology,
+		})
+	}
+
+	questionList := openapi.QuestionList{
+		Items: items,
+		Total: &total,
+	}
+
+	return ctx.JSON(http.StatusOK, questionList)
+}
+
+// GetQuestionById получает полную информацию о вопросе по ID
+// (GET /questions/{id})
+func (s *ServerImplementation) GetQuestionById(ctx echo.Context, id int64) error {
+	// Получаем вопрос из БД
+	question, err := s.questionRepo.GetQuestionByID(ctx.Request().Context(), id)
+	if err != nil {
+		return ctx.JSON(http.StatusNotFound, openapi.ErrorResponse{
+			Message: "Question not found",
+			Code:    strPtr("QUESTION_NOT_FOUND"),
+		})
+	}
+
+	// Преобразуем в формат OpenAPI
+	questionDetail := openapi.QuestionDetail{
+		Id:            question.ID,
+		Title:         question.Title,
+		Content:       question.Content,
+		Difficulty:    openapi.QuestionDetailDifficulty(question.Difficulty),
+		Technology:    question.Technology,
+		Options:       question.Options,
+		CorrectAnswer: question.CorrectAnswer,
+		Explanation:   &question.Explanation,
+	}
+
+	return ctx.JSON(http.StatusOK, questionDetail)
 }
 
 // strPtr возвращает указатель на строку

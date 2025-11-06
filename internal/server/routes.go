@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterRoutes регистрирует все маршруты и Swagger
-func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository) error {
+func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository) error {
 	// Middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -21,7 +21,15 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 
-	// Статические файлы OpenAPI (YAML и другие файлы)
+	// Специальный обработчик для openapi.yaml с отключенным кешем
+	e.GET("/api-docs/openapi.yaml", func(c echo.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		c.Response().Header().Set("Pragma", "no-cache")
+		c.Response().Header().Set("Expires", "0")
+		return c.File("api/openapi/openapi.yaml")
+	})
+
+	// Статические файлы OpenAPI (остальные файлы)
 	e.Static("/api-docs", "api/openapi")
 
 	// Swagger UI - используем кастомный index.html из api/openapi
@@ -30,7 +38,7 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	})
 
 	// Создаем реализацию обработчиков
-	impl := NewServerImplementation(authService, repo, sessionRepo)
+	impl := NewServerImplementation(authService, repo, sessionRepo, questionRepo)
 
 	// Регистрируем обработчики через обертку
 	wrapper := openapi.ServerInterfaceWrapper{Handler: impl}
@@ -49,6 +57,10 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	optionalAuth := e.Group("/api/v1")
 	optionalAuth.Use(OptionalAuthMiddleware(authService))
 	optionalAuth.GET("/mentors", wrapper.ListMentors)
+
+	// Публичные маршруты для вопросов
+	e.GET("/api/v1/questions", wrapper.ListQuestions)
+	e.GET("/api/v1/questions/:id", wrapper.GetQuestionById)
 
 	return nil
 }
