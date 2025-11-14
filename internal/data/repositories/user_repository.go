@@ -17,9 +17,9 @@ func NewUserRepository(db *database.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (u *UserRepository) CheckUser(ctx context.Context, email, username string) (*int64, error) {
+func (u *UserRepository) CheckUser(ctx context.Context, email, username string) (*int, error) {
 	query := "SELECT id FROM users WHERE email=$1 OR username=$2"
-	var userID int64
+	var userID int
 	err := u.db.Pool.QueryRow(ctx, query, email, username).Scan(&userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

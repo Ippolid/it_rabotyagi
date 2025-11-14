@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -16,14 +17,14 @@ func NewQuestionRepository(db *pgxpool.Pool) *QuestionRepository {
 
 // QuestionListItem представляет краткую информацию о вопросе
 type QuestionListItem struct {
-	ID         int64  `json:"id"`
+	ID         int    `json:"id"`
 	Title      string `json:"title"`
 	Technology string `json:"technology"`
 }
 
 // QuestionDetail представляет полную информацию о вопросе
 type QuestionDetail struct {
-	ID            int64    `json:"id"`
+	ID            int      `json:"id"`
 	Title         string   `json:"title"`
 	Content       string   `json:"content"`
 	Difficulty    string   `json:"difficulty"`
@@ -124,7 +125,7 @@ func (r *QuestionRepository) GetAllQuestions(ctx context.Context, technology *st
 }
 
 // GetQuestionByID получает полную информацию о вопросе по ID
-func (r *QuestionRepository) GetQuestionByID(ctx context.Context, id int64) (*QuestionDetail, error) {
+func (r *QuestionRepository) GetQuestionByID(ctx context.Context, id int) (*QuestionDetail, error) {
 	query := `
 		SELECT q.id, q.title, q.content, q.difficulty, q.options, q.correct_answer, q.explanation, t.name as technology
 		FROM questions q

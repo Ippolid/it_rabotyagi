@@ -185,7 +185,6 @@ paths:
           description: ID вопроса
           schema:
             type: integer
-            format: int64
       responses:
         '200':
           description: Детальная информация о вопросе
@@ -246,7 +245,6 @@ components:
       properties:
         id:
           type: integer
-          format: int64
         email:
           type: string
           format: email
@@ -261,7 +259,6 @@ components:
       properties:
         id:
           type: integer
-          format: int64
         fullName:
           type: string
         title:
@@ -294,7 +291,6 @@ components:
       properties:
         id:
           type: integer
-          format: int64
         title:
           type: string
           description: Название вопроса
@@ -319,7 +315,6 @@ components:
       properties:
         id:
           type: integer
-          format: int64
         title:
           type: string
           description: Название вопроса

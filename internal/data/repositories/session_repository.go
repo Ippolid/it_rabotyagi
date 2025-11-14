@@ -18,8 +18,8 @@ func NewSessionRepository(db *database.DB) *SessionRepository {
 
 // Session представляет сессию пользователя
 type Session struct {
-	ID               int64
-	UserID           int64
+	ID               int
+	UserID           int
 	RefreshTokenHash string
 	ExpiresAt        time.Time
 	CreatedAt        time.Time
@@ -33,7 +33,7 @@ func HashToken(token string) string {
 }
 
 // CreateSession создает новую сессию
-func (r *SessionRepository) CreateSession(ctx context.Context, userID int64, refreshToken string, expiresAt time.Time) error {
+func (r *SessionRepository) CreateSession(ctx context.Context, userID int, refreshToken string, expiresAt time.Time) error {
 	tokenHash := HashToken(refreshToken)
 	query := `INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at) 
               VALUES ($1, $2, $3)`
@@ -77,7 +77,7 @@ func (r *SessionRepository) RevokeSession(ctx context.Context, refreshToken stri
 }
 
 // RevokeAllUserSessions отзывает все сессии пользователя
-func (r *SessionRepository) RevokeAllUserSessions(ctx context.Context, userID int64) error {
+func (r *SessionRepository) RevokeAllUserSessions(ctx context.Context, userID int) error {
 	query := `UPDATE auth_sessions 
               SET revoked_at = now() 
               WHERE user_id = $1 AND revoked_at IS NULL`
@@ -96,7 +96,7 @@ func (r *SessionRepository) CleanExpiredSessions(ctx context.Context) error {
 }
 
 // GetUserActiveSessions получает список активных сессий пользователя
-func (r *SessionRepository) GetUserActiveSessions(ctx context.Context, userID int64) ([]*Session, error) {
+func (r *SessionRepository) GetUserActiveSessions(ctx context.Context, userID int) ([]*Session, error) {
 	query := `SELECT id, user_id, refresh_token_hash, expires_at, created_at, revoked_at 
               FROM auth_sessions 
               WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()

@@ -81,7 +81,7 @@ func (s *ServerImplementation) RegisterUser(ctx echo.Context) error {
 	}
 
 	refreshExpiration := s.authService.GetRefreshTokenExpiration()
-	err = s.sessionRepo.CreateSession(ctx.Request().Context(), int64(userID), refreshToken,
+	err = s.sessionRepo.CreateSession(ctx.Request().Context(), userID, refreshToken,
 		time.Now().Add(refreshExpiration))
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
@@ -128,7 +128,7 @@ func (s *ServerImplementation) LoginUser(ctx echo.Context) error {
 	}
 
 	// Генерируем токены
-	accessToken, refreshToken, expiresIn, err := s.authService.GenerateTokens(int(user.ID), user.Username, user.Role)
+	accessToken, refreshToken, expiresIn, err := s.authService.GenerateTokens(user.ID, user.Username, user.Role)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
 			Message: "Failed to generate tokens",
@@ -348,7 +348,7 @@ func (s *ServerImplementation) ListQuestions(ctx echo.Context, params openapi.Li
 
 // GetQuestionById получает полную информацию о вопросе по ID
 // (GET /questions/{id})
-func (s *ServerImplementation) GetQuestionById(ctx echo.Context, id int64) error {
+func (s *ServerImplementation) GetQuestionById(ctx echo.Context, id int) error {
 	// Получаем вопрос из БД
 	question, err := s.questionRepo.GetQuestionByID(ctx.Request().Context(), id)
 	if err != nil {

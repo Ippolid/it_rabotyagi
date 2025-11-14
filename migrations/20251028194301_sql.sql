@@ -1,6 +1,6 @@
 -- +goose Up
 CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     username TEXT UNIQUE CHECK (length(username) <= 50) NOT NULL,
     password TEXT NOT NULL,
 
@@ -20,8 +20,8 @@ CREATE TABLE users (
 );
 
 CREATE TABLE mentors (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     specialization TEXT NOT NULL,
     grade TEXT,
     experience_years INT,
@@ -35,12 +35,12 @@ CREATE TABLE mentors (
 );
 
 CREATE TABLE technologies (
-    id BIGSERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE courses (
-    id BIGSERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NOT NULL ,
     is_published BOOLEAN NOT NULL DEFAULT FALSE,
@@ -49,15 +49,15 @@ CREATE TABLE courses (
 );
 
 CREATE TABLE course_technologies (
-    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    technology_id BIGINT NOT NULL REFERENCES technologies(id) ON DELETE CASCADE,
+    course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    technology_id INT NOT NULL REFERENCES technologies(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (course_id, technology_id)
 );
 
 CREATE TABLE modules (
-    id BIGSERIAL PRIMARY KEY,
-    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     module_order INT NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE modules (
 );
 
 CREATE TABLE questions (
-    id BIGSERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     difficulty TEXT,
@@ -80,15 +80,15 @@ CREATE TABLE questions (
 );
 
 CREATE TABLE question_technologies (
-    question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-    technology_id BIGINT NOT NULL REFERENCES technologies(id) ON DELETE CASCADE,
+    question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    technology_id INT NOT NULL REFERENCES technologies(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (question_id, technology_id)
 );
 
 CREATE TABLE module_questions (
-    module_id BIGINT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
-    question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    module_id INT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+    question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
     question_order INT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (module_id, question_id),
@@ -96,9 +96,9 @@ CREATE TABLE module_questions (
 );
 
 CREATE TABLE user_course_progress (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
     total_modules INT NOT NULL DEFAULT 0,
     completed_modules INT NOT NULL DEFAULT 0,
     module_progress_pct INT,
@@ -108,10 +108,10 @@ CREATE TABLE user_course_progress (
 );
 
 CREATE TABLE user_progress (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    module_id BIGINT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    module_id INT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
     is_completed BOOLEAN NOT NULL DEFAULT FALSE,
     completion_date TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -119,11 +119,11 @@ CREATE TABLE user_progress (
 );
 
 CREATE TABLE user_question_progress (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    course_id BIGINT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
-    module_id BIGINT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
-    question_id BIGINT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id INT NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    module_id INT NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+    question_id INT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
     is_correct BOOLEAN NOT NULL DEFAULT FALSE,
     attempts INT NOT NULL DEFAULT 1,
     time_spent INTERVAL,
@@ -134,8 +134,8 @@ CREATE TABLE user_question_progress (
 );
 
 CREATE TABLE auth_sessions (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     refresh_token_hash TEXT NOT NULL UNIQUE,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
