@@ -1,6 +1,6 @@
-include deploy/.env
+include ../devops/docker/.env
 LOCAL_BIN:=$(CURDIR)/bin
-LOCAL_MIGRATION_DIR=$(MIGRATION_DIR)
+LOCAL_MIGRATION_DIR=../devops/migrations
 LOCAL_MIGRATION_DSN="host=localhost port=$(PG_PORT) dbname=$(PG_DATABASE_NAME) user=$(PG_USER) password=$(PG_PASSWORD) sslmode=disable"
 
 
@@ -61,7 +61,7 @@ copy-to-server:
 	scp service_linux root@$(IP_SERVER):
 
 docker-build-and-push:
-	docker buildx build --no-cache --platform linux/amd64 -t $(REGESTRY)/server:v0.0.1 -f deploy/Dockerfile .
+	docker buildx build --no-cache --platform linux/amd64 -t $(REGESTRY)/server:v0.0.1 -f ../devops/docker/Dockerfile .
 	docker login -u $(USERNAME) -p $(PASSWORD) $(REGESTRY)
 	docker push $(REGESTRY)/server:v0.0.1
 

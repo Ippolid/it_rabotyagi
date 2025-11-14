@@ -24,8 +24,8 @@ services:
   # Этот сервис запустится, применит миграции и остановится.
   migrator-local:
     build:
-      context: ..
-      dockerfile: deploy/migration.Dockerfile
+      context: ../..
+      dockerfile: devops/docker/migration.Dockerfile
     container_name: it_rabotyagi_migrator
     depends_on:
       pg-local:
@@ -44,8 +44,8 @@ services:
   # 3. Сервис основного приложения
   app:
     build:
-      context: .. # Контекст сборки - корневая папка проекта
-      dockerfile: deploy/Dockerfile # Путь к Dockerfile относительно контекста
+      context: ../../backend # Контекст сборки - папка backend
+      dockerfile: ../devops/docker/Dockerfile # Путь к Dockerfile относительно контекста
     container_name: it_rabotyagi_app
     restart: always
     ports:
