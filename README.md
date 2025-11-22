@@ -36,12 +36,22 @@ git clone <repository-url>
 cd it_rabotyagi
 ```
 
-### 2. Запуск через Docker Compose
+### 2. Настройка окружения
 
 ```bash
 # Переход в папку devops
 cd devops/docker
 
+# Создание .env файла из примера
+cp .env.example .env
+
+# Отредактируйте .env файл, изменив значения по умолчанию
+# на свои собственные (пароли, секретные ключи и т.д.)
+```
+
+### 3. Запуск через Docker Compose
+
+```bash
 # Запуск всех сервисов (PostgreSQL, миграции, приложение)
 docker compose up --build
 
@@ -53,7 +63,7 @@ docker compose up -d --build
 - **API**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/api/openapi/index.html
 
-### 3. Локальная разработка
+### 4. Локальная разработка
 
 ```bash
 # Переход в папку backend
@@ -73,7 +83,7 @@ go build -o app ./cmd/app/main.go
 ./app
 ```
 
-### 4. Остановка сервисов
+### 5. Остановка сервисов
 
 ```bash
 cd devops/docker
@@ -108,7 +118,7 @@ it_rabotyagi/
 │   │   ├── migration.Dockerfile
 │   │   ├── docker-compose.yaml
 │   │   ├── migration.sh
-│   │   └── .env
+│   │   └── .env.example
 │   ├── migrations/           # SQL миграции
 │   └── README.md
 ├── frontend/                 # Frontend (будущая разработка)
@@ -118,7 +128,20 @@ it_rabotyagi/
 
 ## 🔧 Конфигурация
 
-Приложение настраивается через переменные окружения в `devops/docker/.env`:
+Приложение настраивается через переменные окружения в `devops/docker/.env`.
+
+**Важно**: Создайте `.env` файл из `.env.example` шаблона:
+```bash
+cd devops/docker
+cp .env.example .env
+```
+
+Затем отредактируйте `.env`, установив свои значения для:
+- `PG_USER`, `PG_PASSWORD` - учетные данные PostgreSQL
+- `JWT_SECRET` - секретный ключ для JWT токенов
+- Другие параметры по необходимости
+
+Пример переменных окружения:
 
 ```yaml
 environment:
