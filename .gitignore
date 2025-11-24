@@ -57,7 +57,6 @@ yarn-error.log*
 *.dll
 *.so
 *.dylib
-app
 main
 service_linux
 
@@ -84,3 +83,10 @@ bin/
 
 # Environment variables
 .env.local
+/AGENTS.md
+/agents/codex-general-instruction.md
+/agents/debugging-instructions.md
+/agents/development-instructions.md
+/agents/README.md
+/agents/testing-instructions.md
+/agents/*

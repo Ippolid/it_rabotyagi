@@ -15,6 +15,10 @@ tags:
     description: Работа с профилем текущего пользователя
   - name: Mentors
     description: Просмотр списка доступных менторов
+  - name: Courses
+    description: Курсы и управление модулями
+  - name: Progress
+    description: Запись прогресса обучения
   - name: Questions
     description: Работа с вопросами для подготовки к собеседованиям
 paths:
@@ -170,6 +174,29 @@ paths:
                 $ref: '#/components/schemas/QuestionList'
         '400':
           $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Questions]
+      summary: Создать вопрос
+      operationId: createQuestion
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionCreateRequest'
+      responses:
+        '201':
+          description: Вопрос создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /questions/{id}:
     get:
       tags: [Questions]
@@ -194,8 +221,459 @@ paths:
                 $ref: '#/components/schemas/QuestionDetail'
         '404':
           $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Questions]
+      summary: Обновить вопрос
+      operationId: updateQuestion
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID вопроса
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionUpdateRequest'
+      responses:
+        '200':
+          description: Обновленный вопрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Questions]
+      summary: Удалить вопрос
+      operationId: deleteQuestion
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID вопроса
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Вопрос удален
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /courses:
+    get:
+      tags: [Courses]
+      summary: Получить список курсов
+      operationId: listCourses
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        '200':
+          description: Список курсов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseList'
+    post:
+      tags: [Courses]
+      summary: Создать курс
+      operationId: createCourse
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseCreateRequest'
+      responses:
+        '201':
+          description: Курс создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /courses/{id}:
+    get:
+      tags: [Courses]
+      summary: Получить курс
+      operationId: getCourseById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Детали курса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Courses]
+      summary: Обновить курс
+      operationId: updateCourse
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CourseUpdateRequest'
+      responses:
+        '200':
+          description: Обновленный курс
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Courses]
+      summary: Удалить курс
+      operationId: deleteCourse
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Курс удален
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /courses/{id}/modules:
+    get:
+      tags: [Courses]
+      summary: Получить модули курса
+      operationId: listModules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Список модулей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleList'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Courses]
+      summary: Добавить модуль в курс
+      operationId: createModule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModuleCreateRequest'
+      responses:
+        '201':
+          description: Модуль создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /courses/{id}/modules/{moduleId}:
+    get:
+      tags: [Courses]
+      summary: Получить модуль
+      operationId: getModuleById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Детали модуля
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Courses]
+      summary: Обновить модуль
+      operationId: updateModule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModuleUpdateRequest'
+      responses:
+        '200':
+          description: Обновленный модуль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Courses]
+      summary: Удалить модуль
+      operationId: deleteModule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Модуль удален
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /courses/{id}/enroll:
+    post:
+      tags: [Progress]
+      summary: Записаться на курс
+      operationId: enrollCourse
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Запись подтверждена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnrollmentStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /courses/{id}/progress:
+    get:
+      tags: [Progress]
+      summary: Получить прогресс по курсу
+      operationId: getCourseProgress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Прогресс по курсу
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseProgress'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /courses/{courseId}/modules/{moduleId}/complete:
+    post:
+      tags: [Progress]
+      summary: Отметить модуль завершенным
+      operationId: completeModule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Статус завершения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleCompletion'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /mentors/{id}:
+    get:
+      tags: [Mentors]
+      summary: Получить профиль ментора
+      operationId: getMentorById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Профиль ментора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MentorProfile'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   schemas:
+    QuestionCreateRequest:
+      type: object
+      required: [title, content, difficulty, technology, options, correctAnswer]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        technology:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        options:
+          type: array
+          items:
+            type: string
+        correctAnswer:
+          type: string
+        explanation:
+          type: string
+    QuestionUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        technology:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        options:
+          type: array
+          items:
+            type: string
+        correctAnswer:
+          type: string
+        explanation:
+          type: string
     AuthRegisterRequest:
       type: object
       required: [email, password, nickname]
@@ -339,6 +817,216 @@ components:
         explanation:
           type: string
           description: Объяснение правильного ответа
+        tags:
+          type: array
+          items:
+            type: string
+          description: Теги/метки вопроса
+    CourseList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseListItem'
+        total:
+          type: integer
+          minimum: 0
+    CourseListItem:
+      type: object
+      required: [id, title, description, isPublished]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        isPublished:
+          type: boolean
+    CourseDetail:
+      type: object
+      required: [id, title, description, isPublished, modules]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        isPublished:
+          type: boolean
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleDetail'
+    CourseCreateRequest:
+      type: object
+      required: [title, description]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        isPublished:
+          type: boolean
+    CourseUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        isPublished:
+          type: boolean
+    ModuleList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleDetail'
+    ModuleDetail:
+      type: object
+      required: [id, title, description, order]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+          description: Текст/markdown модуля
+        order:
+          type: integer
+    ModuleCreateRequest:
+      type: object
+      required: [title, description, order]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        order:
+          type: integer
+    ModuleUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        order:
+          type: integer
+    EnrollmentStatus:
+      type: object
+      required: [courseId, enrolled]
+      properties:
+        courseId:
+          type: integer
+        enrolled:
+          type: boolean
+        enrolledAt:
+          type: string
+          format: date-time
+    CourseProgress:
+      type: object
+      required: [courseId, totalModules, completedModules]
+      properties:
+        courseId:
+          type: integer
+        totalModules:
+          type: integer
+        completedModules:
+          type: integer
+        percentage:
+          type: number
+          format: float
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleProgressItem'
+    ModuleProgressItem:
+      type: object
+      required: [moduleId, title, completed]
+      properties:
+        moduleId:
+          type: integer
+        title:
+          type: string
+        completed:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+    ModuleCompletion:
+      type: object
+      required: [courseId, moduleId, completed]
+      properties:
+        courseId:
+          type: integer
+        moduleId:
+          type: integer
+        completed:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+    MentorProfile:
+      type: object
+      required: [id, userId, specialization]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        specialization:
+          type: string
+        grade:
+          type: string
+        experienceYears:
+          type: integer
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        contacts:
+          type: object
+        pricelist:
+          type: object
+    MentorRequest:
+      type: object
+      required: [id, mentorId, userId, status]
+      properties:
+        id:
+          type: integer
+        mentorId:
+          type: integer
+        userId:
+          type: integer
+        status:
+          type: string
+          enum: [pending, accepted, denied]
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    MentorRequestCreate:
+      type: object
+      properties:
+        message:
+          type: string
     ErrorResponse:
       type: object
       required: [message]

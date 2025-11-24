@@ -104,14 +104,77 @@ type ClientInterface interface {
 
 	RegisterUser(ctx context.Context, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListCourses request
+	ListCourses(ctx context.Context, params *ListCoursesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateCourseWithBody request with any body
+	CreateCourseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateCourse(ctx context.Context, body CreateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CompleteModule request
+	CompleteModule(ctx context.Context, courseId int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteCourse request
+	DeleteCourse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCourseById request
+	GetCourseById(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateCourseWithBody request with any body
+	UpdateCourseWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateCourse(ctx context.Context, id int, body UpdateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnrollCourse request
+	EnrollCourse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListModules request
+	ListModules(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateModuleWithBody request with any body
+	CreateModuleWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateModule(ctx context.Context, id int, body CreateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteModule request
+	DeleteModule(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetModuleById request
+	GetModuleById(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateModuleWithBody request with any body
+	UpdateModuleWithBody(ctx context.Context, id int, moduleId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateModule(ctx context.Context, id int, moduleId int, body UpdateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCourseProgress request
+	GetCourseProgress(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListMentors request
 	ListMentors(ctx context.Context, params *ListMentorsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMentorById request
+	GetMentorById(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListQuestions request
 	ListQuestions(ctx context.Context, params *ListQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateQuestionWithBody request with any body
+	CreateQuestionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateQuestion(ctx context.Context, body CreateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteQuestion request
+	DeleteQuestion(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetQuestionById request
 	GetQuestionById(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateQuestionWithBody request with any body
+	UpdateQuestionWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateQuestion(ctx context.Context, id int, body UpdateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetCurrentUser request
 	GetCurrentUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -189,8 +252,224 @@ func (c *Client) RegisterUser(ctx context.Context, body RegisterUserJSONRequestB
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListCourses(ctx context.Context, params *ListCoursesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCoursesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateCourseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCourseRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateCourse(ctx context.Context, body CreateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateCourseRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CompleteModule(ctx context.Context, courseId int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCompleteModuleRequest(c.Server, courseId, moduleId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteCourse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteCourseRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCourseById(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCourseByIdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCourseWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCourseRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateCourse(ctx context.Context, id int, body UpdateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateCourseRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) EnrollCourse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnrollCourseRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListModules(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListModulesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateModuleWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateModuleRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateModule(ctx context.Context, id int, body CreateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateModuleRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteModule(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteModuleRequest(c.Server, id, moduleId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetModuleById(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetModuleByIdRequest(c.Server, id, moduleId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateModuleWithBody(ctx context.Context, id int, moduleId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateModuleRequestWithBody(c.Server, id, moduleId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateModule(ctx context.Context, id int, moduleId int, body UpdateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateModuleRequest(c.Server, id, moduleId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCourseProgress(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCourseProgressRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListMentors(ctx context.Context, params *ListMentorsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListMentorsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetMentorById(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMentorByIdRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +492,68 @@ func (c *Client) ListQuestions(ctx context.Context, params *ListQuestionsParams,
 	return c.Client.Do(req)
 }
 
+func (c *Client) CreateQuestionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateQuestionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateQuestion(ctx context.Context, body CreateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateQuestionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteQuestion(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteQuestionRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetQuestionById(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetQuestionByIdRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateQuestionWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateQuestionRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateQuestion(ctx context.Context, id int, body UpdateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateQuestionRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -357,6 +696,552 @@ func NewRegisterUserRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
+// NewListCoursesRequest generates requests for ListCourses
+func NewListCoursesRequest(server string, params *ListCoursesParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "limit", runtime.ParamLocationQuery, *params.Limit); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "offset", runtime.ParamLocationQuery, *params.Offset); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateCourseRequest calls the generic CreateCourse builder with application/json body
+func NewCreateCourseRequest(server string, body CreateCourseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateCourseRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateCourseRequestWithBody generates requests for CreateCourse with any type of body
+func NewCreateCourseRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCompleteModuleRequest generates requests for CompleteModule
+func NewCompleteModuleRequest(server string, courseId int, moduleId int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "courseId", runtime.ParamLocationPath, courseId)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "moduleId", runtime.ParamLocationPath, moduleId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/modules/%s/complete", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteCourseRequest generates requests for DeleteCourse
+func NewDeleteCourseRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetCourseByIdRequest generates requests for GetCourseById
+func NewGetCourseByIdRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateCourseRequest calls the generic UpdateCourse builder with application/json body
+func NewUpdateCourseRequest(server string, id int, body UpdateCourseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateCourseRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateCourseRequestWithBody generates requests for UpdateCourse with any type of body
+func NewUpdateCourseRequestWithBody(server string, id int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEnrollCourseRequest generates requests for EnrollCourse
+func NewEnrollCourseRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/enroll", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListModulesRequest generates requests for ListModules
+func NewListModulesRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/modules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateModuleRequest calls the generic CreateModule builder with application/json body
+func NewCreateModuleRequest(server string, id int, body CreateModuleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateModuleRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewCreateModuleRequestWithBody generates requests for CreateModule with any type of body
+func NewCreateModuleRequestWithBody(server string, id int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/modules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteModuleRequest generates requests for DeleteModule
+func NewDeleteModuleRequest(server string, id int, moduleId int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "moduleId", runtime.ParamLocationPath, moduleId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/modules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetModuleByIdRequest generates requests for GetModuleById
+func NewGetModuleByIdRequest(server string, id int, moduleId int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "moduleId", runtime.ParamLocationPath, moduleId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/modules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateModuleRequest calls the generic UpdateModule builder with application/json body
+func NewUpdateModuleRequest(server string, id int, moduleId int, body UpdateModuleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateModuleRequestWithBody(server, id, moduleId, "application/json", bodyReader)
+}
+
+// NewUpdateModuleRequestWithBody generates requests for UpdateModule with any type of body
+func NewUpdateModuleRequestWithBody(server string, id int, moduleId int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "moduleId", runtime.ParamLocationPath, moduleId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/modules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetCourseProgressRequest generates requests for GetCourseProgress
+func NewGetCourseProgressRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/progress", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListMentorsRequest generates requests for ListMentors
 func NewListMentorsRequest(server string, params *ListMentorsParams) (*http.Request, error) {
 	var err error
@@ -428,6 +1313,40 @@ func NewListMentorsRequest(server string, params *ListMentorsParams) (*http.Requ
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMentorByIdRequest generates requests for GetMentorById
+func NewGetMentorByIdRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/mentors/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -519,6 +1438,80 @@ func NewListQuestionsRequest(server string, params *ListQuestionsParams) (*http.
 	return req, nil
 }
 
+// NewCreateQuestionRequest calls the generic CreateQuestion builder with application/json body
+func NewCreateQuestionRequest(server string, body CreateQuestionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateQuestionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateQuestionRequestWithBody generates requests for CreateQuestion with any type of body
+func NewCreateQuestionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/questions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteQuestionRequest generates requests for DeleteQuestion
+func NewDeleteQuestionRequest(server string, id int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/questions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetQuestionByIdRequest generates requests for GetQuestionById
 func NewGetQuestionByIdRequest(server string, id int) (*http.Request, error) {
 	var err error
@@ -549,6 +1542,53 @@ func NewGetQuestionByIdRequest(server string, id int) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateQuestionRequest calls the generic UpdateQuestion builder with application/json body
+func NewUpdateQuestionRequest(server string, id int, body UpdateQuestionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateQuestionRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateQuestionRequestWithBody generates requests for UpdateQuestion with any type of body
+func NewUpdateQuestionRequestWithBody(server string, id int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/questions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -638,14 +1678,77 @@ type ClientWithResponsesInterface interface {
 
 	RegisterUserWithResponse(ctx context.Context, body RegisterUserJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterUserResponse, error)
 
+	// ListCoursesWithResponse request
+	ListCoursesWithResponse(ctx context.Context, params *ListCoursesParams, reqEditors ...RequestEditorFn) (*ListCoursesResponse, error)
+
+	// CreateCourseWithBodyWithResponse request with any body
+	CreateCourseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCourseResponse, error)
+
+	CreateCourseWithResponse(ctx context.Context, body CreateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCourseResponse, error)
+
+	// CompleteModuleWithResponse request
+	CompleteModuleWithResponse(ctx context.Context, courseId int, moduleId int, reqEditors ...RequestEditorFn) (*CompleteModuleResponse, error)
+
+	// DeleteCourseWithResponse request
+	DeleteCourseWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteCourseResponse, error)
+
+	// GetCourseByIdWithResponse request
+	GetCourseByIdWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetCourseByIdResponse, error)
+
+	// UpdateCourseWithBodyWithResponse request with any body
+	UpdateCourseWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCourseResponse, error)
+
+	UpdateCourseWithResponse(ctx context.Context, id int, body UpdateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCourseResponse, error)
+
+	// EnrollCourseWithResponse request
+	EnrollCourseWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*EnrollCourseResponse, error)
+
+	// ListModulesWithResponse request
+	ListModulesWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*ListModulesResponse, error)
+
+	// CreateModuleWithBodyWithResponse request with any body
+	CreateModuleWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModuleResponse, error)
+
+	CreateModuleWithResponse(ctx context.Context, id int, body CreateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModuleResponse, error)
+
+	// DeleteModuleWithResponse request
+	DeleteModuleWithResponse(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*DeleteModuleResponse, error)
+
+	// GetModuleByIdWithResponse request
+	GetModuleByIdWithResponse(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*GetModuleByIdResponse, error)
+
+	// UpdateModuleWithBodyWithResponse request with any body
+	UpdateModuleWithBodyWithResponse(ctx context.Context, id int, moduleId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateModuleResponse, error)
+
+	UpdateModuleWithResponse(ctx context.Context, id int, moduleId int, body UpdateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateModuleResponse, error)
+
+	// GetCourseProgressWithResponse request
+	GetCourseProgressWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetCourseProgressResponse, error)
+
 	// ListMentorsWithResponse request
 	ListMentorsWithResponse(ctx context.Context, params *ListMentorsParams, reqEditors ...RequestEditorFn) (*ListMentorsResponse, error)
+
+	// GetMentorByIdWithResponse request
+	GetMentorByIdWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetMentorByIdResponse, error)
 
 	// ListQuestionsWithResponse request
 	ListQuestionsWithResponse(ctx context.Context, params *ListQuestionsParams, reqEditors ...RequestEditorFn) (*ListQuestionsResponse, error)
 
+	// CreateQuestionWithBodyWithResponse request with any body
+	CreateQuestionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateQuestionResponse, error)
+
+	CreateQuestionWithResponse(ctx context.Context, body CreateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateQuestionResponse, error)
+
+	// DeleteQuestionWithResponse request
+	DeleteQuestionWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteQuestionResponse, error)
+
 	// GetQuestionByIdWithResponse request
 	GetQuestionByIdWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetQuestionByIdResponse, error)
+
+	// UpdateQuestionWithBodyWithResponse request with any body
+	UpdateQuestionWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateQuestionResponse, error)
+
+	UpdateQuestionWithResponse(ctx context.Context, id int, body UpdateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateQuestionResponse, error)
 
 	// GetCurrentUserWithResponse request
 	GetCurrentUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentUserResponse, error)
@@ -723,6 +1826,314 @@ func (r RegisterUserResponse) StatusCode() int {
 	return 0
 }
 
+type ListCoursesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CourseList
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCoursesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCoursesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateCourseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *CourseDetail
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateCourseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateCourseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CompleteModuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModuleCompletion
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r CompleteModuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CompleteModuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteCourseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteCourseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteCourseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCourseByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CourseDetail
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCourseByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCourseByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateCourseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CourseDetail
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateCourseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateCourseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type EnrollCourseResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EnrollmentStatus
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r EnrollCourseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnrollCourseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListModulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModuleList
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r ListModulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListModulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateModuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *ModuleDetail
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateModuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateModuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteModuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteModuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteModuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetModuleByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModuleDetail
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetModuleByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetModuleByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateModuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ModuleDetail
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateModuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateModuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCourseProgressResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CourseProgress
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCourseProgressResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCourseProgressResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListMentorsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -739,6 +2150,29 @@ func (r ListMentorsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListMentorsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetMentorByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *MentorProfile
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMentorByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMentorByIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -768,6 +2202,53 @@ func (r ListQuestionsResponse) StatusCode() int {
 	return 0
 }
 
+type CreateQuestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *QuestionDetail
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateQuestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateQuestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteQuestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteQuestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteQuestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetQuestionByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -785,6 +2266,31 @@ func (r GetQuestionByIdResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetQuestionByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateQuestionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *QuestionDetail
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateQuestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateQuestionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -865,6 +2371,155 @@ func (c *ClientWithResponses) RegisterUserWithResponse(ctx context.Context, body
 	return ParseRegisterUserResponse(rsp)
 }
 
+// ListCoursesWithResponse request returning *ListCoursesResponse
+func (c *ClientWithResponses) ListCoursesWithResponse(ctx context.Context, params *ListCoursesParams, reqEditors ...RequestEditorFn) (*ListCoursesResponse, error) {
+	rsp, err := c.ListCourses(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCoursesResponse(rsp)
+}
+
+// CreateCourseWithBodyWithResponse request with arbitrary body returning *CreateCourseResponse
+func (c *ClientWithResponses) CreateCourseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateCourseResponse, error) {
+	rsp, err := c.CreateCourseWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCourseResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateCourseWithResponse(ctx context.Context, body CreateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateCourseResponse, error) {
+	rsp, err := c.CreateCourse(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateCourseResponse(rsp)
+}
+
+// CompleteModuleWithResponse request returning *CompleteModuleResponse
+func (c *ClientWithResponses) CompleteModuleWithResponse(ctx context.Context, courseId int, moduleId int, reqEditors ...RequestEditorFn) (*CompleteModuleResponse, error) {
+	rsp, err := c.CompleteModule(ctx, courseId, moduleId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompleteModuleResponse(rsp)
+}
+
+// DeleteCourseWithResponse request returning *DeleteCourseResponse
+func (c *ClientWithResponses) DeleteCourseWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteCourseResponse, error) {
+	rsp, err := c.DeleteCourse(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteCourseResponse(rsp)
+}
+
+// GetCourseByIdWithResponse request returning *GetCourseByIdResponse
+func (c *ClientWithResponses) GetCourseByIdWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetCourseByIdResponse, error) {
+	rsp, err := c.GetCourseById(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCourseByIdResponse(rsp)
+}
+
+// UpdateCourseWithBodyWithResponse request with arbitrary body returning *UpdateCourseResponse
+func (c *ClientWithResponses) UpdateCourseWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateCourseResponse, error) {
+	rsp, err := c.UpdateCourseWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCourseResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateCourseWithResponse(ctx context.Context, id int, body UpdateCourseJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateCourseResponse, error) {
+	rsp, err := c.UpdateCourse(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateCourseResponse(rsp)
+}
+
+// EnrollCourseWithResponse request returning *EnrollCourseResponse
+func (c *ClientWithResponses) EnrollCourseWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*EnrollCourseResponse, error) {
+	rsp, err := c.EnrollCourse(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnrollCourseResponse(rsp)
+}
+
+// ListModulesWithResponse request returning *ListModulesResponse
+func (c *ClientWithResponses) ListModulesWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*ListModulesResponse, error) {
+	rsp, err := c.ListModules(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListModulesResponse(rsp)
+}
+
+// CreateModuleWithBodyWithResponse request with arbitrary body returning *CreateModuleResponse
+func (c *ClientWithResponses) CreateModuleWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateModuleResponse, error) {
+	rsp, err := c.CreateModuleWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateModuleResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateModuleWithResponse(ctx context.Context, id int, body CreateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateModuleResponse, error) {
+	rsp, err := c.CreateModule(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateModuleResponse(rsp)
+}
+
+// DeleteModuleWithResponse request returning *DeleteModuleResponse
+func (c *ClientWithResponses) DeleteModuleWithResponse(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*DeleteModuleResponse, error) {
+	rsp, err := c.DeleteModule(ctx, id, moduleId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteModuleResponse(rsp)
+}
+
+// GetModuleByIdWithResponse request returning *GetModuleByIdResponse
+func (c *ClientWithResponses) GetModuleByIdWithResponse(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*GetModuleByIdResponse, error) {
+	rsp, err := c.GetModuleById(ctx, id, moduleId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetModuleByIdResponse(rsp)
+}
+
+// UpdateModuleWithBodyWithResponse request with arbitrary body returning *UpdateModuleResponse
+func (c *ClientWithResponses) UpdateModuleWithBodyWithResponse(ctx context.Context, id int, moduleId int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateModuleResponse, error) {
+	rsp, err := c.UpdateModuleWithBody(ctx, id, moduleId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateModuleResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateModuleWithResponse(ctx context.Context, id int, moduleId int, body UpdateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateModuleResponse, error) {
+	rsp, err := c.UpdateModule(ctx, id, moduleId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateModuleResponse(rsp)
+}
+
+// GetCourseProgressWithResponse request returning *GetCourseProgressResponse
+func (c *ClientWithResponses) GetCourseProgressWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetCourseProgressResponse, error) {
+	rsp, err := c.GetCourseProgress(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCourseProgressResponse(rsp)
+}
+
 // ListMentorsWithResponse request returning *ListMentorsResponse
 func (c *ClientWithResponses) ListMentorsWithResponse(ctx context.Context, params *ListMentorsParams, reqEditors ...RequestEditorFn) (*ListMentorsResponse, error) {
 	rsp, err := c.ListMentors(ctx, params, reqEditors...)
@@ -872,6 +2527,15 @@ func (c *ClientWithResponses) ListMentorsWithResponse(ctx context.Context, param
 		return nil, err
 	}
 	return ParseListMentorsResponse(rsp)
+}
+
+// GetMentorByIdWithResponse request returning *GetMentorByIdResponse
+func (c *ClientWithResponses) GetMentorByIdWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetMentorByIdResponse, error) {
+	rsp, err := c.GetMentorById(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMentorByIdResponse(rsp)
 }
 
 // ListQuestionsWithResponse request returning *ListQuestionsResponse
@@ -883,6 +2547,32 @@ func (c *ClientWithResponses) ListQuestionsWithResponse(ctx context.Context, par
 	return ParseListQuestionsResponse(rsp)
 }
 
+// CreateQuestionWithBodyWithResponse request with arbitrary body returning *CreateQuestionResponse
+func (c *ClientWithResponses) CreateQuestionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateQuestionResponse, error) {
+	rsp, err := c.CreateQuestionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateQuestionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateQuestionWithResponse(ctx context.Context, body CreateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateQuestionResponse, error) {
+	rsp, err := c.CreateQuestion(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateQuestionResponse(rsp)
+}
+
+// DeleteQuestionWithResponse request returning *DeleteQuestionResponse
+func (c *ClientWithResponses) DeleteQuestionWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*DeleteQuestionResponse, error) {
+	rsp, err := c.DeleteQuestion(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteQuestionResponse(rsp)
+}
+
 // GetQuestionByIdWithResponse request returning *GetQuestionByIdResponse
 func (c *ClientWithResponses) GetQuestionByIdWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetQuestionByIdResponse, error) {
 	rsp, err := c.GetQuestionById(ctx, id, reqEditors...)
@@ -890,6 +2580,23 @@ func (c *ClientWithResponses) GetQuestionByIdWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseGetQuestionByIdResponse(rsp)
+}
+
+// UpdateQuestionWithBodyWithResponse request with arbitrary body returning *UpdateQuestionResponse
+func (c *ClientWithResponses) UpdateQuestionWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateQuestionResponse, error) {
+	rsp, err := c.UpdateQuestionWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateQuestionResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateQuestionWithResponse(ctx context.Context, id int, body UpdateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateQuestionResponse, error) {
+	rsp, err := c.UpdateQuestion(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateQuestionResponse(rsp)
 }
 
 // GetCurrentUserWithResponse request returning *GetCurrentUserResponse
@@ -1021,6 +2728,498 @@ func ParseRegisterUserResponse(rsp *http.Response) (*RegisterUserResponse, error
 	return response, nil
 }
 
+// ParseListCoursesResponse parses an HTTP response from a ListCoursesWithResponse call
+func ParseListCoursesResponse(rsp *http.Response) (*ListCoursesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCoursesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CourseList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateCourseResponse parses an HTTP response from a CreateCourseWithResponse call
+func ParseCreateCourseResponse(rsp *http.Response) (*CreateCourseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateCourseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CourseDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCompleteModuleResponse parses an HTTP response from a CompleteModuleWithResponse call
+func ParseCompleteModuleResponse(rsp *http.Response) (*CompleteModuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CompleteModuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModuleCompletion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteCourseResponse parses an HTTP response from a DeleteCourseWithResponse call
+func ParseDeleteCourseResponse(rsp *http.Response) (*DeleteCourseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteCourseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCourseByIdResponse parses an HTTP response from a GetCourseByIdWithResponse call
+func ParseGetCourseByIdResponse(rsp *http.Response) (*GetCourseByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCourseByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CourseDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateCourseResponse parses an HTTP response from a UpdateCourseWithResponse call
+func ParseUpdateCourseResponse(rsp *http.Response) (*UpdateCourseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateCourseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CourseDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseEnrollCourseResponse parses an HTTP response from a EnrollCourseWithResponse call
+func ParseEnrollCourseResponse(rsp *http.Response) (*EnrollCourseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnrollCourseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EnrollmentStatus
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListModulesResponse parses an HTTP response from a ListModulesWithResponse call
+func ParseListModulesResponse(rsp *http.Response) (*ListModulesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListModulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModuleList
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateModuleResponse parses an HTTP response from a CreateModuleWithResponse call
+func ParseCreateModuleResponse(rsp *http.Response) (*CreateModuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateModuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest ModuleDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteModuleResponse parses an HTTP response from a DeleteModuleWithResponse call
+func ParseDeleteModuleResponse(rsp *http.Response) (*DeleteModuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteModuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetModuleByIdResponse parses an HTTP response from a GetModuleByIdWithResponse call
+func ParseGetModuleByIdResponse(rsp *http.Response) (*GetModuleByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetModuleByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModuleDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateModuleResponse parses an HTTP response from a UpdateModuleWithResponse call
+func ParseUpdateModuleResponse(rsp *http.Response) (*UpdateModuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateModuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ModuleDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCourseProgressResponse parses an HTTP response from a GetCourseProgressWithResponse call
+func ParseGetCourseProgressResponse(rsp *http.Response) (*GetCourseProgressResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCourseProgressResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CourseProgress
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListMentorsResponse parses an HTTP response from a ListMentorsWithResponse call
 func ParseListMentorsResponse(rsp *http.Response) (*ListMentorsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1041,6 +3240,39 @@ func ParseListMentorsResponse(rsp *http.Response) (*ListMentorsResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetMentorByIdResponse parses an HTTP response from a GetMentorByIdWithResponse call
+func ParseGetMentorByIdResponse(rsp *http.Response) (*GetMentorByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMentorByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest MentorProfile
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	}
 
@@ -1080,6 +3312,79 @@ func ParseListQuestionsResponse(rsp *http.Response) (*ListQuestionsResponse, err
 	return response, nil
 }
 
+// ParseCreateQuestionResponse parses an HTTP response from a CreateQuestionWithResponse call
+func ParseCreateQuestionResponse(rsp *http.Response) (*CreateQuestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateQuestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest QuestionDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteQuestionResponse parses an HTTP response from a DeleteQuestionWithResponse call
+func ParseDeleteQuestionResponse(rsp *http.Response) (*DeleteQuestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteQuestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetQuestionByIdResponse parses an HTTP response from a GetQuestionByIdWithResponse call
 func ParseGetQuestionByIdResponse(rsp *http.Response) (*GetQuestionByIdResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1100,6 +3405,53 @@ func ParseGetQuestionByIdResponse(rsp *http.Response) (*GetQuestionByIdResponse,
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateQuestionResponse parses an HTTP response from a UpdateQuestionWithResponse call
+func ParseUpdateQuestionResponse(rsp *http.Response) (*UpdateQuestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateQuestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest QuestionDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest NotFound

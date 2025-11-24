@@ -1,17 +1,17 @@
 package server
 
 import (
-	"it_rabotyagi/api/openapi"
-	"it_rabotyagi/internal/business/services"
-	"it_rabotyagi/internal/data/repositories"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"it_rabotyagi/api/openapi"
+	"it_rabotyagi/internal/business/services"
+	"it_rabotyagi/internal/data/repositories"
 )
 
 // RegisterRoutes регистрирует все маршруты и Swagger
-func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository) error {
+func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository, courseRepo *repositories.CourseRepository, mentorRepo *repositories.MentorRepository, permissionRepo PermissionChecker) error {
 	// Middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -38,29 +38,41 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	})
 
 	// Создаем реализацию обработчиков
-	impl := NewServerImplementation(authService, repo, sessionRepo, questionRepo)
+	impl := NewServerImplementation(authService, repo, sessionRepo, questionRepo, courseRepo, mentorRepo, permissionRepo)
 
-	// Регистрируем обработчики через обертку
+	api := e.Group("/api/v1")
 	wrapper := openapi.ServerInterfaceWrapper{Handler: impl}
 
 	// Публичные маршруты (без авторизации)
-	e.POST("/api/v1/auth/register", wrapper.RegisterUser)
-	e.POST("/api/v1/auth/login", wrapper.LoginUser)
-	e.POST("/api/v1/auth/refresh", wrapper.RefreshTokens)
+	api.POST("/auth/register", wrapper.RegisterUser)
+	api.POST("/auth/login", wrapper.LoginUser)
+	api.POST("/auth/refresh", wrapper.RefreshTokens)
+	api.GET("/questions", wrapper.ListQuestions)
+	api.GET("/questions/:id", wrapper.GetQuestionById)
+	api.GET("/courses", wrapper.ListCourses)
+	api.GET("/courses/:id", wrapper.GetCourseById)
+	api.GET("/courses/:id/modules", wrapper.ListModules)
+	api.GET("/courses/:id/modules/:moduleId", wrapper.GetModuleById)
+	api.GET("/mentors", wrapper.ListMentors)
+	api.GET("/mentors/:id", wrapper.GetMentorById)
 
-	// Защищенные маршруты (требуют авторизации)
-	authRequired := e.Group("/api/v1")
+	// Маршруты с обязательной авторизацией
+	authRequired := api.Group("")
 	authRequired.Use(AuthMiddleware(authService))
 	authRequired.GET("/users/me", wrapper.GetCurrentUser)
+	authRequired.POST("/questions", wrapper.CreateQuestion)
+	authRequired.PATCH("/questions/:id", wrapper.UpdateQuestion)
+	authRequired.DELETE("/questions/:id", wrapper.DeleteQuestion)
 
-	// Маршруты с опциональной авторизацией
-	optionalAuth := e.Group("/api/v1")
-	optionalAuth.Use(OptionalAuthMiddleware(authService))
-	optionalAuth.GET("/mentors", wrapper.ListMentors)
-
-	// Публичные маршруты для вопросов
-	e.GET("/api/v1/questions", wrapper.ListQuestions)
-	e.GET("/api/v1/questions/:id", wrapper.GetQuestionById)
+	authRequired.POST("/courses", wrapper.CreateCourse)
+	authRequired.PATCH("/courses/:id", wrapper.UpdateCourse)
+	authRequired.DELETE("/courses/:id", wrapper.DeleteCourse)
+	authRequired.POST("/courses/:id/modules", wrapper.CreateModule)
+	authRequired.PATCH("/courses/:id/modules/:moduleId", wrapper.UpdateModule)
+	authRequired.DELETE("/courses/:id/modules/:moduleId", wrapper.DeleteModule)
+	authRequired.POST("/courses/:id/enroll", wrapper.EnrollCourse)
+	authRequired.GET("/courses/:id/progress", wrapper.GetCourseProgress)
+	authRequired.POST("/courses/:courseId/modules/:moduleId/complete", wrapper.CompleteModule)
 
 	return nil
 }

@@ -22,15 +22,66 @@ type ServerInterface interface {
 	// Зарегистрировать нового пользователя
 	// (POST /auth/register)
 	RegisterUser(ctx echo.Context) error
+	// Получить список курсов
+	// (GET /courses)
+	ListCourses(ctx echo.Context, params ListCoursesParams) error
+	// Создать курс
+	// (POST /courses)
+	CreateCourse(ctx echo.Context) error
+	// Отметить модуль завершенным
+	// (POST /courses/{courseId}/modules/{moduleId}/complete)
+	CompleteModule(ctx echo.Context, courseId int, moduleId int) error
+	// Удалить курс
+	// (DELETE /courses/{id})
+	DeleteCourse(ctx echo.Context, id int) error
+	// Получить курс
+	// (GET /courses/{id})
+	GetCourseById(ctx echo.Context, id int) error
+	// Обновить курс
+	// (PATCH /courses/{id})
+	UpdateCourse(ctx echo.Context, id int) error
+	// Записаться на курс
+	// (POST /courses/{id}/enroll)
+	EnrollCourse(ctx echo.Context, id int) error
+	// Получить модули курса
+	// (GET /courses/{id}/modules)
+	ListModules(ctx echo.Context, id int) error
+	// Добавить модуль в курс
+	// (POST /courses/{id}/modules)
+	CreateModule(ctx echo.Context, id int) error
+	// Удалить модуль
+	// (DELETE /courses/{id}/modules/{moduleId})
+	DeleteModule(ctx echo.Context, id int, moduleId int) error
+	// Получить модуль
+	// (GET /courses/{id}/modules/{moduleId})
+	GetModuleById(ctx echo.Context, id int, moduleId int) error
+	// Обновить модуль
+	// (PATCH /courses/{id}/modules/{moduleId})
+	UpdateModule(ctx echo.Context, id int, moduleId int) error
+	// Получить прогресс по курсу
+	// (GET /courses/{id}/progress)
+	GetCourseProgress(ctx echo.Context, id int) error
 	// Получить список менторов
 	// (GET /mentors)
 	ListMentors(ctx echo.Context, params ListMentorsParams) error
+	// Получить профиль ментора
+	// (GET /mentors/{id})
+	GetMentorById(ctx echo.Context, id int) error
 	// Получить список всех вопросов
 	// (GET /questions)
 	ListQuestions(ctx echo.Context, params ListQuestionsParams) error
+	// Создать вопрос
+	// (POST /questions)
+	CreateQuestion(ctx echo.Context) error
+	// Удалить вопрос
+	// (DELETE /questions/{id})
+	DeleteQuestion(ctx echo.Context, id int) error
 	// Получить вопрос по ID
 	// (GET /questions/{id})
 	GetQuestionById(ctx echo.Context, id int) error
+	// Обновить вопрос
+	// (PATCH /questions/{id})
+	UpdateQuestion(ctx echo.Context, id int) error
 	// Получить профиль текущего пользователя
 	// (GET /users/me)
 	GetCurrentUser(ctx echo.Context) error
@@ -68,6 +119,266 @@ func (w *ServerInterfaceWrapper) RegisterUser(ctx echo.Context) error {
 	return err
 }
 
+// ListCourses converts echo context to params.
+func (w *ServerInterfaceWrapper) ListCourses(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCoursesParams
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", ctx.QueryParams(), &params.Offset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter offset: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListCourses(ctx, params)
+	return err
+}
+
+// CreateCourse converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateCourse(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateCourse(ctx)
+	return err
+}
+
+// CompleteModule converts echo context to params.
+func (w *ServerInterfaceWrapper) CompleteModule(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "courseId" -------------
+	var courseId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "courseId", ctx.Param("courseId"), &courseId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter courseId: %s", err))
+	}
+
+	// ------------- Path parameter "moduleId" -------------
+	var moduleId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "moduleId", ctx.Param("moduleId"), &moduleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter moduleId: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CompleteModule(ctx, courseId, moduleId)
+	return err
+}
+
+// DeleteCourse converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteCourse(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteCourse(ctx, id)
+	return err
+}
+
+// GetCourseById converts echo context to params.
+func (w *ServerInterfaceWrapper) GetCourseById(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetCourseById(ctx, id)
+	return err
+}
+
+// UpdateCourse converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateCourse(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateCourse(ctx, id)
+	return err
+}
+
+// EnrollCourse converts echo context to params.
+func (w *ServerInterfaceWrapper) EnrollCourse(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.EnrollCourse(ctx, id)
+	return err
+}
+
+// ListModules converts echo context to params.
+func (w *ServerInterfaceWrapper) ListModules(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListModules(ctx, id)
+	return err
+}
+
+// CreateModule converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateModule(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateModule(ctx, id)
+	return err
+}
+
+// DeleteModule converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteModule(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "moduleId" -------------
+	var moduleId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "moduleId", ctx.Param("moduleId"), &moduleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter moduleId: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteModule(ctx, id, moduleId)
+	return err
+}
+
+// GetModuleById converts echo context to params.
+func (w *ServerInterfaceWrapper) GetModuleById(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "moduleId" -------------
+	var moduleId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "moduleId", ctx.Param("moduleId"), &moduleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter moduleId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetModuleById(ctx, id, moduleId)
+	return err
+}
+
+// UpdateModule converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateModule(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "moduleId" -------------
+	var moduleId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "moduleId", ctx.Param("moduleId"), &moduleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter moduleId: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateModule(ctx, id, moduleId)
+	return err
+}
+
+// GetCourseProgress converts echo context to params.
+func (w *ServerInterfaceWrapper) GetCourseProgress(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetCourseProgress(ctx, id)
+	return err
+}
+
 // ListMentors converts echo context to params.
 func (w *ServerInterfaceWrapper) ListMentors(ctx echo.Context) error {
 	var err error
@@ -97,6 +408,22 @@ func (w *ServerInterfaceWrapper) ListMentors(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ListMentors(ctx, params)
+	return err
+}
+
+// GetMentorById converts echo context to params.
+func (w *ServerInterfaceWrapper) GetMentorById(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetMentorById(ctx, id)
 	return err
 }
 
@@ -132,6 +459,35 @@ func (w *ServerInterfaceWrapper) ListQuestions(ctx echo.Context) error {
 	return err
 }
 
+// CreateQuestion converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateQuestion(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateQuestion(ctx)
+	return err
+}
+
+// DeleteQuestion converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteQuestion(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteQuestion(ctx, id)
+	return err
+}
+
 // GetQuestionById converts echo context to params.
 func (w *ServerInterfaceWrapper) GetQuestionById(ctx echo.Context) error {
 	var err error
@@ -145,6 +501,24 @@ func (w *ServerInterfaceWrapper) GetQuestionById(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetQuestionById(ctx, id)
+	return err
+}
+
+// UpdateQuestion converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateQuestion(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateQuestion(ctx, id)
 	return err
 }
 
@@ -190,9 +564,26 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/auth/login", wrapper.LoginUser)
 	router.POST(baseURL+"/auth/refresh", wrapper.RefreshTokens)
 	router.POST(baseURL+"/auth/register", wrapper.RegisterUser)
+	router.GET(baseURL+"/courses", wrapper.ListCourses)
+	router.POST(baseURL+"/courses", wrapper.CreateCourse)
+	router.POST(baseURL+"/courses/:courseId/modules/:moduleId/complete", wrapper.CompleteModule)
+	router.DELETE(baseURL+"/courses/:id", wrapper.DeleteCourse)
+	router.GET(baseURL+"/courses/:id", wrapper.GetCourseById)
+	router.PATCH(baseURL+"/courses/:id", wrapper.UpdateCourse)
+	router.POST(baseURL+"/courses/:id/enroll", wrapper.EnrollCourse)
+	router.GET(baseURL+"/courses/:id/modules", wrapper.ListModules)
+	router.POST(baseURL+"/courses/:id/modules", wrapper.CreateModule)
+	router.DELETE(baseURL+"/courses/:id/modules/:moduleId", wrapper.DeleteModule)
+	router.GET(baseURL+"/courses/:id/modules/:moduleId", wrapper.GetModuleById)
+	router.PATCH(baseURL+"/courses/:id/modules/:moduleId", wrapper.UpdateModule)
+	router.GET(baseURL+"/courses/:id/progress", wrapper.GetCourseProgress)
 	router.GET(baseURL+"/mentors", wrapper.ListMentors)
+	router.GET(baseURL+"/mentors/:id", wrapper.GetMentorById)
 	router.GET(baseURL+"/questions", wrapper.ListQuestions)
+	router.POST(baseURL+"/questions", wrapper.CreateQuestion)
+	router.DELETE(baseURL+"/questions/:id", wrapper.DeleteQuestion)
 	router.GET(baseURL+"/questions/:id", wrapper.GetQuestionById)
+	router.PATCH(baseURL+"/questions/:id", wrapper.UpdateQuestion)
 	router.GET(baseURL+"/users/me", wrapper.GetCurrentUser)
 
 }
