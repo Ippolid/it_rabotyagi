@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -14,6 +15,11 @@ import (
 	"it_rabotyagi/internal/data/repositories"
 )
 
+// PermissionChecker defines the interface to verify if a user may edit mutable resources.
+type PermissionChecker interface {
+	IsEditor(ctx context.Context, userID int) (bool, error)
+}
+
 // ServerImplementation реализует интерфейс openapi.ServerInterface
 type ServerImplementation struct {
 	authService    *services.AuthService
@@ -22,10 +28,10 @@ type ServerImplementation struct {
 	questionRepo   *repositories.QuestionRepository
 	courseRepo     *repositories.CourseRepository
 	mentorRepo     *repositories.MentorRepository
-	permissionRepo *repositories.PermissionRepository
+	permissionRepo PermissionChecker
 }
 
-func NewServerImplementation(authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository, courseRepo *repositories.CourseRepository, mentorRepo *repositories.MentorRepository, permissionRepo *repositories.PermissionRepository) *ServerImplementation {
+func NewServerImplementation(authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository, courseRepo *repositories.CourseRepository, mentorRepo *repositories.MentorRepository, permissionRepo PermissionChecker) *ServerImplementation {
 	return &ServerImplementation{
 		authService:    authService,
 		repo:           repo,
