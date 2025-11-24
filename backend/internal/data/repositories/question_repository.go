@@ -2,7 +2,10 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -29,9 +32,10 @@ type QuestionDetail struct {
 	Content       string   `json:"content"`
 	Difficulty    string   `json:"difficulty"`
 	Technology    string   `json:"technology"`
+	Tags          []string `json:"tags"`
 	Options       []string `json:"options"`
 	CorrectAnswer string   `json:"correct_answer"`
-	Explanation   string   `json:"explanation"`
+	Explanation   *string  `json:"explanation"`
 }
 
 // GetAllQuestions получает список всех вопросов с их технологиями
@@ -127,7 +131,15 @@ func (r *QuestionRepository) GetAllQuestions(ctx context.Context, technology *st
 // GetQuestionByID получает полную информацию о вопросе по ID
 func (r *QuestionRepository) GetQuestionByID(ctx context.Context, id int) (*QuestionDetail, error) {
 	query := `
-		SELECT q.id, q.title, q.content, q.difficulty, q.options, q.correct_answer, q.explanation, t.name as technology
+		SELECT q.id,
+		       q.title,
+		       q.content,
+		       q.difficulty,
+		       q.options,
+		       q.correct_answer,
+		       q.explanation,
+		       q.company_tag,
+		       t.name as technology
 		FROM questions q
 		JOIN question_technologies qt ON q.id = qt.question_id
 		JOIN technologies t ON qt.technology_id = t.id
@@ -137,6 +149,7 @@ func (r *QuestionRepository) GetQuestionByID(ctx context.Context, id int) (*Ques
 
 	var q QuestionDetail
 	var optionsJSON []byte
+	var tags []string
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&q.ID,
@@ -146,6 +159,7 @@ func (r *QuestionRepository) GetQuestionByID(ctx context.Context, id int) (*Ques
 		&optionsJSON,
 		&q.CorrectAnswer,
 		&q.Explanation,
+		&tags,
 		&q.Technology,
 	)
 
@@ -157,6 +171,132 @@ func (r *QuestionRepository) GetQuestionByID(ctx context.Context, id int) (*Ques
 	if err := json.Unmarshal(optionsJSON, &q.Options); err != nil {
 		return nil, err
 	}
+	q.Tags = tags
 
 	return &q, nil
+}
+
+func (r *QuestionRepository) ensureTechnology(ctx context.Context, technology string) (int, error) {
+	var id int
+	err := r.db.QueryRow(ctx, `INSERT INTO technologies (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`, technology).Scan(&id)
+	return id, err
+}
+
+func (r *QuestionRepository) CreateQuestion(ctx context.Context, title, content, difficulty, technology string, tags []string, options []string, correctAnswer string, explanation *string) (int, error) {
+	techID, err := r.ensureTechnology(ctx, technology)
+	if err != nil {
+		return 0, err
+	}
+
+	optsJSON, err := json.Marshal(options)
+	if err != nil {
+		return 0, err
+	}
+
+	var questionID int
+	err = r.db.QueryRow(ctx, `INSERT INTO questions (title, content, difficulty, options, correct_answer, explanation, company_tag) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		title, content, difficulty, optsJSON, correctAnswer, explanation, tags).Scan(&questionID)
+	if err != nil {
+		return 0, err
+	}
+
+	if _, err := r.db.Exec(ctx, `INSERT INTO question_technologies (question_id, technology_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, questionID, techID); err != nil {
+		return 0, err
+	}
+
+	return questionID, nil
+}
+
+func (r *QuestionRepository) UpdateQuestion(ctx context.Context, id int, title, content, difficulty, technology *string, tags *[]string, options *[]string, correctAnswer, explanation *string) error {
+	setParts := []string{}
+	args := []any{}
+	idx := 1
+
+	if title != nil {
+		setParts = append(setParts, fmt.Sprintf("title = $%d", idx))
+		args = append(args, *title)
+		idx++
+	}
+	if content != nil {
+		setParts = append(setParts, fmt.Sprintf("content = $%d", idx))
+		args = append(args, *content)
+		idx++
+	}
+	if difficulty != nil {
+		setParts = append(setParts, fmt.Sprintf("difficulty = $%d", idx))
+		args = append(args, *difficulty)
+		idx++
+	}
+	if options != nil {
+		optsJSON, err := json.Marshal(*options)
+		if err != nil {
+			return err
+		}
+		setParts = append(setParts, fmt.Sprintf("options = $%d", idx))
+		args = append(args, optsJSON)
+		idx++
+	}
+	if correctAnswer != nil {
+		setParts = append(setParts, fmt.Sprintf("correct_answer = $%d", idx))
+		args = append(args, *correctAnswer)
+		idx++
+	}
+	if explanation != nil {
+		setParts = append(setParts, fmt.Sprintf("explanation = $%d", idx))
+		args = append(args, *explanation)
+		idx++
+	}
+	if tags != nil {
+		setParts = append(setParts, fmt.Sprintf("company_tag = $%d", idx))
+		args = append(args, *tags)
+		idx++
+	}
+
+	if len(setParts) == 0 && technology == nil {
+		return nil
+	}
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if len(setParts) > 0 {
+		query := fmt.Sprintf("UPDATE questions SET %s, updated_at = now() WHERE id = $%d", strings.Join(setParts, ", "), idx)
+		argsWithID := append(args, id)
+		cmd, err := tx.Exec(ctx, query, argsWithID...)
+		if err != nil {
+			return err
+		}
+		if cmd.RowsAffected() == 0 {
+			return sql.ErrNoRows
+		}
+	}
+
+	if technology != nil {
+		techID, err := r.ensureTechnology(ctx, *technology)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM question_technologies WHERE question_id = $1", id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, "INSERT INTO question_technologies (question_id, technology_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", id, techID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *QuestionRepository) DeleteQuestion(ctx context.Context, id int) error {
+	cmd, err := r.db.Exec(ctx, "DELETE FROM questions WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

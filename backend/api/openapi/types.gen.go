@@ -4,6 +4,8 @@
 package openapi
 
 import (
+	"time"
+
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -11,11 +13,25 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
+// Defines values for QuestionCreateRequestDifficulty.
+const (
+	QuestionCreateRequestDifficultyEasy   QuestionCreateRequestDifficulty = "easy"
+	QuestionCreateRequestDifficultyHard   QuestionCreateRequestDifficulty = "hard"
+	QuestionCreateRequestDifficultyMedium QuestionCreateRequestDifficulty = "medium"
+)
+
 // Defines values for QuestionDetailDifficulty.
 const (
-	Easy   QuestionDetailDifficulty = "easy"
-	Hard   QuestionDetailDifficulty = "hard"
-	Medium QuestionDetailDifficulty = "medium"
+	QuestionDetailDifficultyEasy   QuestionDetailDifficulty = "easy"
+	QuestionDetailDifficultyHard   QuestionDetailDifficulty = "hard"
+	QuestionDetailDifficultyMedium QuestionDetailDifficulty = "medium"
+)
+
+// Defines values for QuestionUpdateRequestDifficulty.
+const (
+	Easy   QuestionUpdateRequestDifficulty = "easy"
+	Hard   QuestionUpdateRequestDifficulty = "hard"
+	Medium QuestionUpdateRequestDifficulty = "medium"
 )
 
 // AuthLoginRequest defines model for AuthLoginRequest.
@@ -49,6 +65,59 @@ type AuthTokens struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+// CourseCreateRequest defines model for CourseCreateRequest.
+type CourseCreateRequest struct {
+	Description string `json:"description"`
+	IsPublished *bool  `json:"isPublished,omitempty"`
+	Title       string `json:"title"`
+}
+
+// CourseDetail defines model for CourseDetail.
+type CourseDetail struct {
+	Description string         `json:"description"`
+	Id          int            `json:"id"`
+	IsPublished bool           `json:"isPublished"`
+	Modules     []ModuleDetail `json:"modules"`
+	Title       string         `json:"title"`
+}
+
+// CourseList defines model for CourseList.
+type CourseList struct {
+	Items []CourseListItem `json:"items"`
+	Total *int             `json:"total,omitempty"`
+}
+
+// CourseListItem defines model for CourseListItem.
+type CourseListItem struct {
+	Description string `json:"description"`
+	Id          int    `json:"id"`
+	IsPublished bool   `json:"isPublished"`
+	Title       string `json:"title"`
+}
+
+// CourseProgress defines model for CourseProgress.
+type CourseProgress struct {
+	CompletedModules int                   `json:"completedModules"`
+	CourseId         int                   `json:"courseId"`
+	Modules          *[]ModuleProgressItem `json:"modules,omitempty"`
+	Percentage       *float32              `json:"percentage,omitempty"`
+	TotalModules     int                   `json:"totalModules"`
+}
+
+// CourseUpdateRequest defines model for CourseUpdateRequest.
+type CourseUpdateRequest struct {
+	Description *string `json:"description,omitempty"`
+	IsPublished *bool   `json:"isPublished,omitempty"`
+	Title       *string `json:"title,omitempty"`
+}
+
+// EnrollmentStatus defines model for EnrollmentStatus.
+type EnrollmentStatus struct {
+	CourseId   int        `json:"courseId"`
+	Enrolled   bool       `json:"enrolled"`
+	EnrolledAt *time.Time `json:"enrolledAt,omitempty"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	// Code Внутренний код ошибки
@@ -79,6 +148,81 @@ type MentorList struct {
 	Total *int `json:"total,omitempty"`
 }
 
+// MentorProfile defines model for MentorProfile.
+type MentorProfile struct {
+	Contacts        *map[string]interface{} `json:"contacts,omitempty"`
+	Description     *string                 `json:"description,omitempty"`
+	ExperienceYears *int                    `json:"experienceYears,omitempty"`
+	Grade           *string                 `json:"grade,omitempty"`
+	Id              int                     `json:"id"`
+	Pricelist       *map[string]interface{} `json:"pricelist,omitempty"`
+	Specialization  string                  `json:"specialization"`
+	Tags            *[]string               `json:"tags,omitempty"`
+	UserId          int                     `json:"userId"`
+}
+
+// ModuleCompletion defines model for ModuleCompletion.
+type ModuleCompletion struct {
+	Completed   bool       `json:"completed"`
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+	CourseId    int        `json:"courseId"`
+	ModuleId    int        `json:"moduleId"`
+}
+
+// ModuleCreateRequest defines model for ModuleCreateRequest.
+type ModuleCreateRequest struct {
+	Content     *string `json:"content,omitempty"`
+	Description string  `json:"description"`
+	Order       int     `json:"order"`
+	Title       string  `json:"title"`
+}
+
+// ModuleDetail defines model for ModuleDetail.
+type ModuleDetail struct {
+	// Content Текст/markdown модуля
+	Content     *string `json:"content,omitempty"`
+	Description string  `json:"description"`
+	Id          int     `json:"id"`
+	Order       int     `json:"order"`
+	Title       string  `json:"title"`
+}
+
+// ModuleList defines model for ModuleList.
+type ModuleList struct {
+	Items []ModuleDetail `json:"items"`
+}
+
+// ModuleProgressItem defines model for ModuleProgressItem.
+type ModuleProgressItem struct {
+	Completed   bool       `json:"completed"`
+	CompletedAt *time.Time `json:"completedAt,omitempty"`
+	ModuleId    int        `json:"moduleId"`
+	Title       string     `json:"title"`
+}
+
+// ModuleUpdateRequest defines model for ModuleUpdateRequest.
+type ModuleUpdateRequest struct {
+	Content     *string `json:"content,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Order       *int    `json:"order,omitempty"`
+	Title       *string `json:"title,omitempty"`
+}
+
+// QuestionCreateRequest defines model for QuestionCreateRequest.
+type QuestionCreateRequest struct {
+	Content       string                          `json:"content"`
+	CorrectAnswer string                          `json:"correctAnswer"`
+	Difficulty    QuestionCreateRequestDifficulty `json:"difficulty"`
+	Explanation   *string                         `json:"explanation,omitempty"`
+	Options       []string                        `json:"options"`
+	Tags          *[]string                       `json:"tags,omitempty"`
+	Technology    string                          `json:"technology"`
+	Title         string                          `json:"title"`
+}
+
+// QuestionCreateRequestDifficulty defines model for QuestionCreateRequest.Difficulty.
+type QuestionCreateRequestDifficulty string
+
 // QuestionDetail defines model for QuestionDetail.
 type QuestionDetail struct {
 	// Content Полный текст вопроса
@@ -96,6 +240,9 @@ type QuestionDetail struct {
 
 	// Options Варианты ответов
 	Options []string `json:"options"`
+
+	// Tags Теги/метки вопроса
+	Tags *[]string `json:"tags,omitempty"`
 
 	// Technology Технология, к которой относится вопрос
 	Technology string `json:"technology"`
@@ -126,6 +273,21 @@ type QuestionListItem struct {
 	Title string `json:"title"`
 }
 
+// QuestionUpdateRequest defines model for QuestionUpdateRequest.
+type QuestionUpdateRequest struct {
+	Content       *string                          `json:"content,omitempty"`
+	CorrectAnswer *string                          `json:"correctAnswer,omitempty"`
+	Difficulty    *QuestionUpdateRequestDifficulty `json:"difficulty,omitempty"`
+	Explanation   *string                          `json:"explanation,omitempty"`
+	Options       *[]string                        `json:"options,omitempty"`
+	Tags          *[]string                        `json:"tags,omitempty"`
+	Technology    *string                          `json:"technology,omitempty"`
+	Title         *string                          `json:"title,omitempty"`
+}
+
+// QuestionUpdateRequestDifficulty defines model for QuestionUpdateRequest.Difficulty.
+type QuestionUpdateRequestDifficulty string
+
 // UserProfile defines model for UserProfile.
 type UserProfile struct {
 	Email    openapi_types.Email `json:"email"`
@@ -147,6 +309,12 @@ type NotFound = ErrorResponse
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
+
+// ListCoursesParams defines parameters for ListCourses.
+type ListCoursesParams struct {
+	Limit  *int `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
+}
 
 // ListMentorsParams defines parameters for ListMentors.
 type ListMentorsParams struct {
@@ -180,3 +348,21 @@ type RefreshTokensJSONRequestBody = AuthRefreshRequest
 
 // RegisterUserJSONRequestBody defines body for RegisterUser for application/json ContentType.
 type RegisterUserJSONRequestBody = AuthRegisterRequest
+
+// CreateCourseJSONRequestBody defines body for CreateCourse for application/json ContentType.
+type CreateCourseJSONRequestBody = CourseCreateRequest
+
+// UpdateCourseJSONRequestBody defines body for UpdateCourse for application/json ContentType.
+type UpdateCourseJSONRequestBody = CourseUpdateRequest
+
+// CreateModuleJSONRequestBody defines body for CreateModule for application/json ContentType.
+type CreateModuleJSONRequestBody = ModuleCreateRequest
+
+// UpdateModuleJSONRequestBody defines body for UpdateModule for application/json ContentType.
+type UpdateModuleJSONRequestBody = ModuleUpdateRequest
+
+// CreateQuestionJSONRequestBody defines body for CreateQuestion for application/json ContentType.
+type CreateQuestionJSONRequestBody = QuestionCreateRequest
+
+// UpdateQuestionJSONRequestBody defines body for UpdateQuestion for application/json ContentType.
+type UpdateQuestionJSONRequestBody = QuestionUpdateRequest
