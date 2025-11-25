@@ -63,6 +63,20 @@ services:
         condition: service_completed_successfully
     networks:
       - it_rabotyagi-network
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+    container_name: it_rabotyagi_frontend
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-4173}:80"
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - it_rabotyagi-network
 #
 #  # 4. Nginx - веб-сервер для статики и reverse proxy
 #  nginx:
