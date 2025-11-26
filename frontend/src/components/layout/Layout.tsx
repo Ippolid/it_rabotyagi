@@ -9,9 +9,11 @@ interface LayoutProps {
   children: React.ReactNode;
   currentView: View;
   onNavigate: (view: View) => void;
+  userName?: string | null;
+  onLogout?: () => void;
 }
 
-export function Layout({ children, currentView, onNavigate }: LayoutProps) {
+export function Layout({ children, currentView, onNavigate, userName, onLogout }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const navItems = [
@@ -57,12 +59,25 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-4">
-            <Button variant="ghost" onClick={() => onNavigate('auth')}>
-              Войти
-            </Button>
-            <Button onClick={() => onNavigate('auth')}>
-              Начать
-            </Button>
+            {!userName ? (
+              <>
+                <Button variant="ghost" onClick={() => onNavigate('auth')}>
+                  Войти
+                </Button>
+                <Button onClick={() => onNavigate('auth')}>
+                  Начать
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" onClick={() => onNavigate('dashboard')}>
+                  {userName}
+                </Button>
+                <Button variant="outline" onClick={onLogout}>
+                  Выйти
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -94,12 +109,25 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
                 </button>
               ))}
               <div className="border-t border-gray-100 pt-4 flex flex-col gap-3">
-                <Button variant="outline" className="w-full" onClick={() => onNavigate('auth')}>
-                  Войти
-                </Button>
-                <Button className="w-full" onClick={() => onNavigate('auth')}>
-                  Начать
-                </Button>
+                {!userName ? (
+                  <>
+                    <Button variant="outline" className="w-full" onClick={() => onNavigate('auth')}>
+                      Войти
+                    </Button>
+                    <Button className="w-full" onClick={() => onNavigate('auth')}>
+                      Начать
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button className="w-full" onClick={() => { onNavigate('dashboard'); setIsMobileMenuOpen(false); }}>
+                      {userName}
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={() => { onLogout?.(); setIsMobileMenuOpen(false); }}>
+                      Выйти
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

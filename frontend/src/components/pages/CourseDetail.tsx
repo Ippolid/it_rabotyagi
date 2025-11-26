@@ -1,29 +1,80 @@
 
+import React, { useEffect, useState } from 'react';
 import { Course, courses, mentors } from '../../lib/data';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Card, CardContent } from '../ui/card';
 import { CheckCircle, PlayCircle, Lock, Clock, Calendar, User } from 'lucide-react';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { getCourseById, getCourseModules } from '../../lib/api';
 
 export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: () => void }) {
-  const course = courses.find(c => c.id === courseId);
+  const fallback = courses.find(c => c.id === courseId) || courses[0];
+  const [course, setCourse] = useState<Course | null>(fallback || null);
+  const [modules, setModules] = useState<
+    { id: string; title: string; duration?: string; status: 'completed' | 'in-progress' | 'locked' }[]
+  >([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
   const difficultyLabel: Record<string, string> = {
     Beginner: 'Начальный',
     Intermediate: 'Средний',
     Advanced: 'Продвинутый',
   };
   
-  // Mock modules
-  const modules = [
-    { id: 'm1', title: 'Введение и настройка', duration: '45 мин', status: 'completed' },
-    { id: 'm2', title: 'Глубокие базовые концепты', duration: '1 ч 20 мин', status: 'in-progress' },
-    { id: 'm3', title: 'Паттерны архитектуры', duration: '55 мин', status: 'locked' },
-    { id: 'm4', title: 'Продвинутое управление состоянием', duration: '1 ч 10 мин', status: 'locked' },
-    { id: 'm5', title: 'Оптимизация производительности', duration: '1 ч 30 мин', status: 'locked' },
-    { id: 'm6', title: 'Тестирование и QA', duration: '45 мин', status: 'locked' },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getCourseById(courseId);
+        if (cancelled) return;
+        setCourse({
+          id: String(data.id),
+          title: data.title,
+          description: data.description,
+          modulesCount: data.modules?.length ?? fallback?.modulesCount ?? 0,
+          difficulty: fallback?.difficulty || 'Intermediate',
+          image: fallback?.image,
+          tags: fallback?.tags || [],
+          progress: 0,
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Не удалось загрузить курс, показываем демо-версию.');
+          setCourse(fallback || null);
+        }
+      }
+
+      try {
+        const mods = await getCourseModules(courseId);
+        if (cancelled) return;
+        const mapped = mods.items.map((m, idx) => ({
+          id: String(m.id ?? idx),
+          title: m.title,
+          duration: m.description || '—',
+          status: idx === 0 ? 'completed' : idx === 1 ? 'in-progress' : 'locked',
+        }));
+        setModules(mapped);
+      } catch {
+        if (!cancelled) {
+          setModules([
+            { id: 'm1', title: 'Введение и настройка', duration: '45 мин', status: 'completed' },
+            { id: 'm2', title: 'Глубокие базовые концепты', duration: '1 ч 20 мин', status: 'in-progress' },
+            { id: 'm3', title: 'Паттерны архитектуры', duration: '55 мин', status: 'locked' },
+          ]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, fallback]);
 
   if (!course) return <div>Курс не найден</div>;
 
@@ -32,6 +83,8 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
       <Button variant="ghost" onClick={onBack} className="pl-0 hover:bg-transparent hover:text-blue-600">
         ← Назад к курсам
       </Button>
+      {loading && <p className="text-sm text-gray-500">Загружаем курс...</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Main Content */}
@@ -59,8 +112,8 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
                     module.status === 'locked' ? 'opacity-60' : ''
                   }`}
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`
+                 <div className="flex items-center gap-4">
+                   <div className={`
                       w-8 h-8 rounded-full flex items-center justify-center
                       ${module.status === 'completed' ? 'bg-green-100 text-green-600' : 
                         module.status === 'in-progress' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}
@@ -79,6 +132,9 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
                   </div>
                 </div>
               ))}
+              {modules.length === 0 && (
+                <div className="p-4 text-sm text-gray-500">Нет модулей для отображения.</div>
+              )}
             </div>
           </div>
         </div>

@@ -1,15 +1,57 @@
 
-import React from 'react';
-import { questions, Difficulty } from '../../lib/data';
+import React, { useEffect, useMemo, useState } from 'react';
+import { questions as fallbackQuestions, Difficulty } from '../../lib/data';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
-import { Search, MessageSquare, Eye, ThumbsUp, Filter } from 'lucide-react';
+import { Search, MessageSquare, Eye, Filter } from 'lucide-react';
 import { motion } from 'motion/react';
+import { listQuestions } from '../../lib/api';
 
 export function Questions() {
-  const [search, setSearch] = React.useState('');
+  const [search, setSearch] = useState('');
+  const [items, setItems] = useState(fallbackQuestions);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await listQuestions();
+        if (cancelled) return;
+        const mapped = res.items.map((q, idx) => ({
+          id: String(q.id),
+          title: q.title,
+          preview: q.technology || 'Вопрос по технологии',
+          tags: q.tags || (q.technology ? [q.technology] : []),
+          difficulty: (['Beginner', 'Intermediate', 'Advanced'] as Difficulty[])[idx % 3],
+          replies: 0,
+          views: 0,
+        }));
+        setItems(mapped as any);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить вопросы');
+        setItems(fallbackQuestions);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filtered = useMemo(() => {
+    return items.filter((q) =>
+      q.title.toLowerCase().includes(search.toLowerCase()) ||
+      q.preview.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [items, search]);
 
   return (
     <div className="space-y-8">
@@ -38,9 +80,12 @@ export function Questions() {
         </Button>
       </div>
 
+      {loading && <p className="text-sm text-gray-500">Загружаем вопросы...</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
       {/* Questions List */}
       <div className="space-y-4">
-        {questions.map((q) => (
+        {filtered.map((q) => (
           <motion.div 
              key={q.id}
              initial={{ opacity: 0, y: 10 }}

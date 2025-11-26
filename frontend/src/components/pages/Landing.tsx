@@ -1,11 +1,57 @@
 
+import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
 import { ArrowRight, Code, Users, Terminal, Star, TrendingUp } from 'lucide-react';
 import { motion } from 'motion/react';
-import { courses, mentors } from '../../lib/data';
+import { courses as fallbackCourses, mentors as fallbackMentors } from '../../lib/data';
 import { Badge } from '../ui/badge';
+import { listCourses, listMentors } from '../../lib/api';
 
 export function Landing({ onNavigate }: { onNavigate: (view: any) => void }) {
+  const [topCourses, setTopCourses] = useState(fallbackCourses.slice(0, 4));
+  const [topMentors, setTopMentors] = useState(fallbackMentors.slice(0, 3));
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [coursesRes, mentorsRes] = await Promise.all([listCourses(), listMentors()]);
+        if (cancelled) return;
+        const mappedCourses = coursesRes.items.slice(0, 4).map((c, idx) => {
+          const fallback = fallbackCourses[idx % fallbackCourses.length];
+          return {
+            ...fallback,
+            id: String(c.id),
+            title: c.title,
+            description: c.description,
+          };
+        });
+        setTopCourses(mappedCourses);
+
+        const mappedMentors = mentorsRes.items.slice(0, 3).map((m, idx) => {
+          const fb = fallbackMentors[idx % fallbackMentors.length];
+          return {
+            id: String(m.id),
+            name: m.fullName || fb.name,
+            role: m.title || fb.role,
+            company: fb.company,
+            specialization: m.skills || fb.specialization,
+            bio: fb.bio,
+            available: true,
+            avatar: fb.avatar,
+          };
+        });
+        setTopMentors(mappedMentors);
+      } catch {
+        // keep fallbacks
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 overflow-hidden font-sans selection:bg-gray-200">
       
@@ -94,7 +140,7 @@ export function Landing({ onNavigate }: { onNavigate: (view: any) => void }) {
              onClick={() => onNavigate('mentors')}
           >
              <div className="flex -space-x-4 mb-4">
-                {mentors.slice(0,3).map((m, i) => (
+                {topMentors.slice(0,3).map((m, i) => (
                    <div key={i} className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-lg z-10">
                       <img src={`https://images.unsplash.com/${m.avatar}?auto=format&fit=crop&w=100&q=80`} alt="" className="w-full h-full object-cover" />
                    </div>
@@ -137,7 +183,7 @@ export function Landing({ onNavigate }: { onNavigate: (view: any) => void }) {
          {/* Scroll Container */}
          <div className="w-full overflow-x-auto pb-12 pt-4 hide-scrollbar">
             <div className="flex gap-6 px-6 md:px-8 w-max">
-               {courses.map((course, index) => (
+               {topCourses.map((course, index) => (
                   <motion.div 
                      key={course.id}
                      initial={{ opacity: 0, x: 50 }}

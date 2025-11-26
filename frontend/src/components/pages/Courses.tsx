@@ -1,30 +1,70 @@
 
-import React from 'react';
-import { courses, Difficulty } from '../../lib/data';
+import React, { useEffect, useMemo, useState } from 'react';
+import { courses as fallbackCourses, Difficulty } from '../../lib/data';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { BookOpen, Clock, BarChart, Search } from 'lucide-react';
-import { ImageWithFallback } from '../figma/ImageWithFallback';
+import { BookOpen, Search } from 'lucide-react';
 import { motion } from 'motion/react';
+import { listCourses } from '../../lib/api';
 
 export function Courses({ onSelectCourse }: { onSelectCourse: (id: string) => void }) {
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [difficultyFilter, setDifficultyFilter] = React.useState<Difficulty | 'All'>('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState<Difficulty | 'All'>('All');
+  const [items, setItems] = useState(fallbackCourses);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const difficultyLabel: Record<Difficulty, string> = {
     Beginner: 'Начальный',
     Intermediate: 'Средний',
     Advanced: 'Продвинутый',
   };
 
-  const filteredCourses = courses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          course.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDiff = difficultyFilter === 'All' || course.difficulty === difficultyFilter;
-    return matchesSearch && matchesDiff;
-  });
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await listCourses();
+        if (cancelled) return;
+        const mapped = res.items.map((c, idx) => {
+          const fallback = fallbackCourses[idx % fallbackCourses.length];
+          return {
+            id: String(c.id),
+            title: c.title,
+            description: c.description,
+            modulesCount: c.modules?.length ?? c.totalModules ?? fallback.modulesCount ?? 0,
+            difficulty: (['Beginner', 'Intermediate', 'Advanced'] as Difficulty[])[idx % 3],
+            image: fallback.image,
+            tags: c.tags || fallback.tags || [],
+            progress: 0,
+          };
+        });
+        setItems(mapped as any);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить курсы');
+        setItems(fallbackCourses);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredCourses = useMemo(() => {
+    return items.filter(course => {
+      const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            course.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesDiff = difficultyFilter === 'All' || course.difficulty === difficultyFilter;
+      return matchesSearch && matchesDiff;
+    });
+  }, [items, searchTerm, difficultyFilter]);
 
   return (
     <div className="space-y-8">
@@ -57,6 +97,9 @@ export function Courses({ onSelectCourse }: { onSelectCourse: (id: string) => vo
           </Select>
         </div>
       </div>
+
+      {loading && <p className="text-sm text-gray-500">Загружаем курсы...</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCourses.map((course) => (

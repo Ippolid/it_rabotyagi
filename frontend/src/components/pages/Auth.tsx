@@ -6,17 +6,35 @@ import { Label } from '../ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Github, Mail } from 'lucide-react';
+import { login, register, saveTokens } from '../../lib/api';
 
-export function Auth({ onLogin }: { onLogin: () => void }) {
+export function Auth({ onLogin }: { onLogin: (name?: string) => void }) {
   const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent, mode: 'login' | 'signup') => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    setTimeout(() => {
+    const form = new FormData(e.target as HTMLFormElement);
+    const email = String(form.get('email') || form.get('email-signup') || '');
+    const password = String(form.get('password') || form.get('password-signup') || '');
+    const nickname = mode === 'signup' ? String(form.get('nickname') || email.split('@')[0]) : '';
+
+    try {
+      if (mode === 'login') {
+        const tokens = await login(email, password);
+        saveTokens(tokens);
+      } else {
+        const tokens = await register(email, password, nickname);
+        saveTokens(tokens);
+      }
+      onLogin(mode === 'login' ? email : nickname);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка авторизации');
+    } finally {
       setIsLoading(false);
-      onLogin();
-    }, 1000);
+    }
   };
 
   return (
@@ -36,14 +54,14 @@ export function Auth({ onLogin }: { onLogin: () => void }) {
             </TabsList>
             
             <TabsContent value="login">
-              <form onSubmit={handleAuth} className="space-y-4">
+              <form onSubmit={(e) => handleAuth(e, 'login')} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="m@example.com" required />
+                  <Input id="email" name="email" type="email" placeholder="m@example.com" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Пароль</Label>
-                  <Input id="password" type="password" required />
+                  <Input id="password" name="password" type="password" required />
                 </div>
                 <Button className="w-full" type="submit" disabled={isLoading}>
                   {isLoading ? "Входим..." : "Войти"}
@@ -52,24 +70,18 @@ export function Auth({ onLogin }: { onLogin: () => void }) {
             </TabsContent>
             
             <TabsContent value="signup">
-              <form onSubmit={handleAuth} className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="first-name">Имя</Label>
-                      <Input id="first-name" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="last-name">Фамилия</Label>
-                      <Input id="last-name" required />
-                    </div>
-                 </div>
+              <form onSubmit={(e) => handleAuth(e, 'signup')} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nickname">Никнейм</Label>
+                  <Input id="nickname" name="nickname" placeholder="rabotyaga" required />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="email-signup">Email</Label>
-                  <Input id="email-signup" type="email" placeholder="m@example.com" required />
+                  <Input id="email-signup" name="email-signup" type="email" placeholder="m@example.com" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password-signup">Пароль</Label>
-                  <Input id="password-signup" type="password" required />
+                  <Input id="password-signup" name="password-signup" type="password" required />
                 </div>
                 <Button className="w-full" type="submit" disabled={isLoading}>
                   {isLoading ? "Создаем аккаунт..." : "Создать аккаунт"}
@@ -77,6 +89,8 @@ export function Auth({ onLogin }: { onLogin: () => void }) {
               </form>
             </TabsContent>
           </Tabs>
+
+          {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
 
           <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
@@ -88,11 +102,11 @@ export function Auth({ onLogin }: { onLogin: () => void }) {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" onClick={handleAuth}>
+            <Button variant="outline" onClick={() => setError('Соцлогин пока недоступен')}>
               <Github className="mr-2 h-4 w-4" />
               Github
             </Button>
-            <Button variant="outline" onClick={handleAuth}>
+            <Button variant="outline" onClick={() => setError('Соцлогин пока недоступен')}>
               <Mail className="mr-2 h-4 w-4" />
               Google
             </Button>

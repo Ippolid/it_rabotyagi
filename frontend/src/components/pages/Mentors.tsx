@@ -1,12 +1,53 @@
 
-import { mentors } from '../../lib/data';
+import React, { useEffect, useState } from 'react';
+import { mentors as fallbackMentors } from '../../lib/data';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardFooter } from '../ui/card';
-import { Calendar, Star, Briefcase } from 'lucide-react';
+import { Calendar, Briefcase } from 'lucide-react';
 import { motion } from 'motion/react';
+import { listMentors } from '../../lib/api';
 
 export function Mentors() {
+  const [items, setItems] = useState(fallbackMentors);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await listMentors();
+        if (cancelled) return;
+        const mapped = res.items.map((m, idx) => {
+          const fb = fallbackMentors[idx % fallbackMentors.length];
+          return {
+            id: String(m.id),
+            name: m.fullName || fb.name,
+            role: m.title || fb.role,
+            company: fb.company,
+            avatar: fb.avatar,
+            specialization: m.skills || fb.specialization,
+            bio: fb.bio,
+            available: true,
+          };
+        });
+        setItems(mapped as any);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить менторов');
+        setItems(fallbackMentors);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="space-y-8">
       <div className="text-center max-w-2xl mx-auto mb-12">
@@ -16,8 +57,11 @@ export function Mentors() {
         </p>
       </div>
 
+      {loading && <p className="text-sm text-gray-500 text-center">Загружаем менторов...</p>}
+      {error && <p className="text-sm text-red-600 text-center">{error}</p>}
+
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {mentors.map((mentor, i) => (
+        {items.map((mentor, i) => (
           <motion.div
              key={mentor.id}
              initial={{ opacity: 0, scale: 0.95 }}
