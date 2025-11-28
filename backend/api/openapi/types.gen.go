@@ -65,6 +65,12 @@ type AuthTokens struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
+// ChangePasswordRequest defines model for ChangePasswordRequest.
+type ChangePasswordRequest struct {
+	NewPassword string `json:"newPassword"`
+	OldPassword string `json:"oldPassword"`
+}
+
 // CourseCreateRequest defines model for CourseCreateRequest.
 type CourseCreateRequest struct {
 	Description string `json:"description"`
@@ -273,6 +279,28 @@ type QuestionListItem struct {
 	Title string `json:"title"`
 }
 
+// QuestionStatisticsByCourse defines model for QuestionStatisticsByCourse.
+type QuestionStatisticsByCourse struct {
+	CourseId    int                       `json:"courseId"`
+	CourseTitle string                    `json:"courseTitle"`
+	Statistics  QuestionStatisticsSummary `json:"statistics"`
+}
+
+// QuestionStatisticsSummary defines model for QuestionStatisticsSummary.
+type QuestionStatisticsSummary struct {
+	// AvgTimeSpent Среднее время на вопрос в секундах
+	AvgTimeSpent float32 `json:"avgTimeSpent"`
+
+	// CorrectAnswersPct Процент правильных ответов
+	CorrectAnswersPct float32 `json:"correctAnswersPct"`
+
+	// TotalAttempts Общее количество попыток
+	TotalAttempts int `json:"totalAttempts"`
+
+	// TotalSolved Всего решено вопросов
+	TotalSolved int `json:"totalSolved"`
+}
+
 // QuestionUpdateRequest defines model for QuestionUpdateRequest.
 type QuestionUpdateRequest struct {
 	Content       *string                          `json:"content,omitempty"`
@@ -288,6 +316,35 @@ type QuestionUpdateRequest struct {
 // QuestionUpdateRequestDifficulty defines model for QuestionUpdateRequest.Difficulty.
 type QuestionUpdateRequestDifficulty string
 
+// UserAvatarResponse defines model for UserAvatarResponse.
+type UserAvatarResponse struct {
+	AvatarUrl string `json:"avatarUrl"`
+}
+
+// UserAvatarUpdateRequest defines model for UserAvatarUpdateRequest.
+type UserAvatarUpdateRequest struct {
+	// AvatarUrl HTTP/HTTPS URL аватара пользователя
+	AvatarUrl string `json:"avatarUrl"`
+}
+
+// UserCourseStatisticsItem defines model for UserCourseStatisticsItem.
+type UserCourseStatisticsItem struct {
+	CompletedModules int       `json:"completedModules"`
+	CourseId         int       `json:"courseId"`
+	CourseTitle      string    `json:"courseTitle"`
+	ProgressPct      float32   `json:"progressPct"`
+	StartedAt        time.Time `json:"startedAt"`
+
+	// TimeSpent Общее время обучения в часах
+	TimeSpent    *float32 `json:"timeSpent,omitempty"`
+	TotalModules int      `json:"totalModules"`
+}
+
+// UserCourseStatisticsList defines model for UserCourseStatisticsList.
+type UserCourseStatisticsList struct {
+	Items []UserCourseStatisticsItem `json:"items"`
+}
+
 // UserProfile defines model for UserProfile.
 type UserProfile struct {
 	Email    openapi_types.Email `json:"email"`
@@ -296,6 +353,39 @@ type UserProfile struct {
 
 	// Role Роль пользователя в системе
 	Role string `json:"role"`
+}
+
+// UserProfileUpdateRequest defines model for UserProfileUpdateRequest.
+type UserProfileUpdateRequest struct {
+	Description *string              `json:"description,omitempty"`
+	Email       *openapi_types.Email `json:"email,omitempty"`
+	Name        *string              `json:"name,omitempty"`
+	Username    *string              `json:"username,omitempty"`
+}
+
+// UserProfileUpdateResponse defines model for UserProfileUpdateResponse.
+type UserProfileUpdateResponse struct {
+	Profile UserProfile `json:"profile"`
+	Tokens  *AuthTokens `json:"tokens,omitempty"`
+}
+
+// UserQuestionStatistics defines model for UserQuestionStatistics.
+type UserQuestionStatistics struct {
+	ByCourse []QuestionStatisticsByCourse `json:"byCourse"`
+	Overall  QuestionStatisticsSummary    `json:"overall"`
+}
+
+// UserStatistics defines model for UserStatistics.
+type UserStatistics struct {
+	// CoursesCompleted Количество завершенных курсов
+	CoursesCompleted int `json:"coursesCompleted"`
+
+	// CoursesEnrolled Количество записанных курсов
+	CoursesEnrolled int `json:"coursesEnrolled"`
+
+	// OverallProgressPct Общий процент прогресса
+	OverallProgressPct  float32                   `json:"overallProgressPct"`
+	QuestionsStatistics QuestionStatisticsSummary `json:"questionsStatistics"`
 }
 
 // BadRequest defines model for BadRequest.
@@ -340,6 +430,12 @@ type ListQuestionsParams struct {
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// GetUserQuestionStatisticsParams defines parameters for GetUserQuestionStatistics.
+type GetUserQuestionStatisticsParams struct {
+	// CourseId Фильтр по курсу (опционально)
+	CourseId *int `form:"courseId,omitempty" json:"courseId,omitempty"`
+}
+
 // LoginUserJSONRequestBody defines body for LoginUser for application/json ContentType.
 type LoginUserJSONRequestBody = AuthLoginRequest
 
@@ -366,3 +462,12 @@ type CreateQuestionJSONRequestBody = QuestionCreateRequest
 
 // UpdateQuestionJSONRequestBody defines body for UpdateQuestion for application/json ContentType.
 type UpdateQuestionJSONRequestBody = QuestionUpdateRequest
+
+// UpdateUserAvatarJSONRequestBody defines body for UpdateUserAvatar for application/json ContentType.
+type UpdateUserAvatarJSONRequestBody = UserAvatarUpdateRequest
+
+// ChangeUserPasswordJSONRequestBody defines body for ChangeUserPassword for application/json ContentType.
+type ChangeUserPasswordJSONRequestBody = ChangePasswordRequest
+
+// UpdateUserProfileJSONRequestBody defines body for UpdateUserProfile for application/json ContentType.
+type UpdateUserProfileJSONRequestBody = UserProfileUpdateRequest

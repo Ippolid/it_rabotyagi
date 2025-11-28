@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterRoutes регистрирует все маршруты и Swagger
-func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository, courseRepo *repositories.CourseRepository, mentorRepo *repositories.MentorRepository, permissionRepo PermissionChecker) error {
+func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository, courseRepo *repositories.CourseRepository, mentorRepo *repositories.MentorRepository, permissionRepo PermissionChecker, statisticsRepo *repositories.StatisticsRepository) error {
 	// Middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -37,8 +37,11 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 		return c.Redirect(http.StatusMovedPermanently, "/api-docs/index.html")
 	})
 
+	// Создаем сервисы
+	userService := services.NewUserService()
+
 	// Создаем реализацию обработчиков
-	impl := NewServerImplementation(authService, repo, sessionRepo, questionRepo, courseRepo, mentorRepo, permissionRepo)
+	impl := NewServerImplementation(authService, repo, sessionRepo, questionRepo, courseRepo, mentorRepo, permissionRepo, statisticsRepo, userService)
 
 	api := e.Group("/api/v1")
 	wrapper := openapi.ServerInterfaceWrapper{Handler: impl}
@@ -60,6 +63,13 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	authRequired := api.Group("")
 	authRequired.Use(AuthMiddleware(authService))
 	authRequired.GET("/users/me", wrapper.GetCurrentUser)
+	authRequired.GET("/users/me/statistics", wrapper.GetUserStatistics)
+	authRequired.GET("/users/me/statistics/courses", wrapper.GetUserCourseStatistics)
+	authRequired.GET("/users/me/statistics/questions", wrapper.GetUserQuestionStatistics)
+	authRequired.PATCH("/users/me/profile", wrapper.UpdateUserProfile)
+	authRequired.PATCH("/users/me/avatar", wrapper.UpdateUserAvatar)
+	authRequired.POST("/users/me/password", wrapper.ChangeUserPassword)
+
 	authRequired.POST("/questions", wrapper.CreateQuestion)
 	authRequired.PATCH("/questions/:id", wrapper.UpdateQuestion)
 	authRequired.DELETE("/questions/:id", wrapper.DeleteQuestion)

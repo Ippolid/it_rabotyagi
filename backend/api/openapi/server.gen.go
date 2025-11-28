@@ -85,6 +85,24 @@ type ServerInterface interface {
 	// Получить профиль текущего пользователя
 	// (GET /users/me)
 	GetCurrentUser(ctx echo.Context) error
+	// Обновить аватар пользователя
+	// (PATCH /users/me/avatar)
+	UpdateUserAvatar(ctx echo.Context) error
+	// Изменить пароль
+	// (POST /users/me/password)
+	ChangeUserPassword(ctx echo.Context) error
+	// Обновить профиль пользователя
+	// (PATCH /users/me/profile)
+	UpdateUserProfile(ctx echo.Context) error
+	// Получить общую статистику пользователя
+	// (GET /users/me/statistics)
+	GetUserStatistics(ctx echo.Context) error
+	// Получить детальную статистику по курсам
+	// (GET /users/me/statistics/courses)
+	GetUserCourseStatistics(ctx echo.Context) error
+	// Получить статистику по вопросам
+	// (GET /users/me/statistics/questions)
+	GetUserQuestionStatistics(ctx echo.Context, params GetUserQuestionStatisticsParams) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -533,6 +551,81 @@ func (w *ServerInterfaceWrapper) GetCurrentUser(ctx echo.Context) error {
 	return err
 }
 
+// UpdateUserAvatar converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateUserAvatar(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateUserAvatar(ctx)
+	return err
+}
+
+// ChangeUserPassword converts echo context to params.
+func (w *ServerInterfaceWrapper) ChangeUserPassword(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ChangeUserPassword(ctx)
+	return err
+}
+
+// UpdateUserProfile converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateUserProfile(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateUserProfile(ctx)
+	return err
+}
+
+// GetUserStatistics converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUserStatistics(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUserStatistics(ctx)
+	return err
+}
+
+// GetUserCourseStatistics converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUserCourseStatistics(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUserCourseStatistics(ctx)
+	return err
+}
+
+// GetUserQuestionStatistics converts echo context to params.
+func (w *ServerInterfaceWrapper) GetUserQuestionStatistics(ctx echo.Context) error {
+	var err error
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUserQuestionStatisticsParams
+	// ------------- Optional query parameter "courseId" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "courseId", ctx.QueryParams(), &params.CourseId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter courseId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetUserQuestionStatistics(ctx, params)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -585,5 +678,11 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/questions/:id", wrapper.GetQuestionById)
 	router.PATCH(baseURL+"/questions/:id", wrapper.UpdateQuestion)
 	router.GET(baseURL+"/users/me", wrapper.GetCurrentUser)
+	router.PATCH(baseURL+"/users/me/avatar", wrapper.UpdateUserAvatar)
+	router.POST(baseURL+"/users/me/password", wrapper.ChangeUserPassword)
+	router.PATCH(baseURL+"/users/me/profile", wrapper.UpdateUserProfile)
+	router.GET(baseURL+"/users/me/statistics", wrapper.GetUserStatistics)
+	router.GET(baseURL+"/users/me/statistics/courses", wrapper.GetUserCourseStatistics)
+	router.GET(baseURL+"/users/me/statistics/questions", wrapper.GetUserQuestionStatistics)
 
 }

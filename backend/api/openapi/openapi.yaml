@@ -107,6 +107,146 @@ paths:
                 $ref: '#/components/schemas/UserProfile'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /users/me/statistics:
+    get:
+      tags: [Users]
+      summary: Получить общую статистику пользователя
+      operationId: getUserStatistics
+      description: Возвращает общую статистику по курсам и вопросам для текущего пользователя
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Общая статистика
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStatistics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/me/statistics/courses:
+    get:
+      tags: [Users]
+      summary: Получить детальную статистику по курсам
+      operationId: getUserCourseStatistics
+      description: Возвращает детальную статистику по каждому курсу, на который записан пользователь
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Статистика по курсам
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserCourseStatisticsList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/me/statistics/questions:
+    get:
+      tags: [Users]
+      summary: Получить статистику по вопросам
+      operationId: getUserQuestionStatistics
+      description: Возвращает общую и детальную статистику по решенным вопросам
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: courseId
+          in: query
+          description: Фильтр по курсу (опционально)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Статистика по вопросам
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserQuestionStatistics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/me/profile:
+    patch:
+      tags: [Users]
+      summary: Обновить профиль пользователя
+      operationId: updateUserProfile
+      description: >
+        Обновляет основные данные пользователя (username, name, email, description).
+        Проверяет уникальность username и email. При обновлении username выдаются новые JWT токены.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileUpdateRequest'
+      responses:
+        '200':
+          description: Обновленный профиль (и новые токены, если username изменен)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileUpdateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /users/me/avatar:
+    patch:
+      tags: [Users]
+      summary: Обновить аватар пользователя
+      operationId: updateUserAvatar
+      description: Обновляет URL аватара пользователя
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserAvatarUpdateRequest'
+      responses:
+        '200':
+          description: Обновленный аватар
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAvatarResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/me/password:
+    post:
+      tags: [Users]
+      summary: Изменить пароль
+      operationId: changeUserPassword
+      description: >
+        Изменяет пароль пользователя. Требует подтверждение старым паролем.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Пароль успешно изменен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /mentors:
     get:
       tags: [Mentors]
@@ -1036,6 +1176,140 @@ components:
         code:
           type: string
           description: Внутренний код ошибки
+    UserStatistics:
+      type: object
+      required: [coursesEnrolled, coursesCompleted, overallProgressPct, questionsStatistics]
+      properties:
+        coursesEnrolled:
+          type: integer
+          description: Количество записанных курсов
+        coursesCompleted:
+          type: integer
+          description: Количество завершенных курсов
+        overallProgressPct:
+          type: number
+          format: float
+          description: Общий процент прогресса
+        questionsStatistics:
+          $ref: '#/components/schemas/QuestionStatisticsSummary'
+    QuestionStatisticsSummary:
+      type: object
+      required: [totalSolved, correctAnswersPct, totalAttempts, avgTimeSpent]
+      properties:
+        totalSolved:
+          type: integer
+          description: Всего решено вопросов
+        correctAnswersPct:
+          type: number
+          format: float
+          description: Процент правильных ответов
+        totalAttempts:
+          type: integer
+          description: Общее количество попыток
+        avgTimeSpent:
+          type: number
+          format: float
+          description: Среднее время на вопрос в секундах
+    UserCourseStatisticsList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserCourseStatisticsItem'
+    UserCourseStatisticsItem:
+      type: object
+      required: [courseId, courseTitle, totalModules, completedModules, progressPct, startedAt]
+      properties:
+        courseId:
+          type: integer
+        courseTitle:
+          type: string
+        totalModules:
+          type: integer
+        completedModules:
+          type: integer
+        progressPct:
+          type: number
+          format: float
+        startedAt:
+          type: string
+          format: date-time
+        timeSpent:
+          type: number
+          format: float
+          description: Общее время обучения в часах
+    UserQuestionStatistics:
+      type: object
+      required: [overall, byCourse]
+      properties:
+        overall:
+          $ref: '#/components/schemas/QuestionStatisticsSummary'
+        byCourse:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionStatisticsByCourse'
+    QuestionStatisticsByCourse:
+      type: object
+      required: [courseId, courseTitle, statistics]
+      properties:
+        courseId:
+          type: integer
+        courseTitle:
+          type: string
+        statistics:
+          $ref: '#/components/schemas/QuestionStatisticsSummary'
+    UserProfileUpdateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+        name:
+          type: string
+          maxLength: 50
+        email:
+          type: string
+          format: email
+          maxLength: 250
+        description:
+          type: string
+          maxLength: 150
+    UserProfileUpdateResponse:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          $ref: '#/components/schemas/UserProfile'
+        tokens:
+          $ref: '#/components/schemas/AuthTokens'
+          description: Новые токены (только если username был изменен)
+    UserAvatarUpdateRequest:
+      type: object
+      required: [avatarUrl]
+      properties:
+        avatarUrl:
+          type: string
+          format: uri
+          description: HTTP/HTTPS URL аватара пользователя
+    UserAvatarResponse:
+      type: object
+      required: [avatarUrl]
+      properties:
+        avatarUrl:
+          type: string
+    ChangePasswordRequest:
+      type: object
+      required: [oldPassword, newPassword]
+      properties:
+        oldPassword:
+          type: string
+          minLength: 8
+        newPassword:
+          type: string
+          minLength: 8
   responses:
     BadRequest:
       description: Некорректный запрос
