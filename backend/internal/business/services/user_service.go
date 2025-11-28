@@ -3,7 +3,10 @@ package services
 import (
 	"errors"
 	"it_rabotyagi/internal/business/models"
-	"regexp"
+	"net"
+	"net/mail"
+	"net/url"
+	"strings"
 )
 
 type UserService struct{}
@@ -56,12 +59,90 @@ func (s *UserService) ValidateAvatarURL(url string) error {
 	return nil
 }
 
+// isValidEmail проверяет корректность email адреса
 func isValidEmail(email string) bool {
-	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	return emailRegex.MatchString(email)
+	// Используем стандартную библиотеку для парсинга
+	addr, err := mail.ParseAddress(email)
+	if err != nil {
+		return false
+	}
+
+	// Проверяем, что адрес совпадает с оригиналом
+	if addr.Address != email {
+		return false
+	}
+
+	// Разбиваем на локальную часть и домен
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return false
+	}
+
+	domain := parts[1]
+
+	// Отклоняем localhost и локальные домены
+	if strings.HasSuffix(domain, ".local") || domain == "localhost" {
+		return false
+	}
+
+	// Проверяем consecutive dots
+	if strings.Contains(email, "..") {
+		return false
+	}
+
+	return true
 }
 
+// isValidURL проверяет корректность URL аватара без whitelist доменов
 func isValidURL(urlStr string) bool {
-	urlRegex := regexp.MustCompile(`^https?://[^\s]+$`)
-	return urlRegex.MatchString(urlStr)
+	// Парсим URL
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
+
+	// Только HTTPS для безопасности
+	if u.Scheme != "https" {
+		return false
+	}
+
+	// Проверяем, что URL не пустой
+	if u.Host == "" {
+		return false
+	}
+
+	// Проверяем, что нет credentials в URL (защита от утечки данных)
+	if u.User != nil {
+		return false
+	}
+
+	hostname := u.Hostname()
+
+	// Блокируем localhost и локальные адреса (защита от SSRF)
+	if hostname == "localhost" || strings.HasSuffix(hostname, ".local") {
+		return false
+	}
+
+	// Проверяем IP адрес - блокируем приватные и loopback адреса
+	if ip := net.ParseIP(hostname); ip != nil {
+		// Блокируем loopback (127.0.0.0/8, ::1)
+		if ip.IsLoopback() {
+			return false
+		}
+		// Блокируем приватные сети (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7)
+		if ip.IsPrivate() {
+			return false
+		}
+		// Блокируем link-local адреса (169.254.0.0/16, fe80::/10)
+		if ip.IsLinkLocalUnicast() {
+			return false
+		}
+	}
+
+	// Проверяем длину URL (защита от DoS)
+	if len(urlStr) > 2048 {
+		return false
+	}
+
+	return true
 }

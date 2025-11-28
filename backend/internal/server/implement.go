@@ -2,14 +2,13 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"golang.org/x/crypto/bcrypt"
 	"it_rabotyagi/api/openapi"
 	"it_rabotyagi/internal/business/models"
 	"it_rabotyagi/internal/business/services"
@@ -48,9 +47,18 @@ func NewServerImplementation(authService *services.AuthService, repo *repositori
 	}
 }
 
-func Hash(password string) string {
-	hash := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(hash[:])
+// HashPassword хеширует пароль используя bcrypt
+func HashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+// VerifyPassword проверяет соответствие пароля хешу
+func VerifyPassword(hashedPassword, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
 func (s *ServerImplementation) ensureEditor(ctx echo.Context) bool {
@@ -120,7 +128,16 @@ func (s *ServerImplementation) RegisterUser(ctx echo.Context) error {
 		})
 	}
 
-	userID, err := s.repo.CreateUser(ctx.Request().Context(), string(req.Email), req.Nickname, Hash(req.Password))
+	// Хешируем пароль
+	hashedPassword, err := HashPassword(req.Password)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to hash password",
+			Code:    strPtr("PASSWORD_HASH_ERROR"),
+		})
+	}
+
+	userID, err := s.repo.CreateUser(ctx.Request().Context(), string(req.Email), req.Nickname, hashedPassword)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
 			Message: "Failed to create user",
@@ -176,7 +193,7 @@ func (s *ServerImplementation) LoginUser(ctx echo.Context) error {
 	}
 
 	// Проверяем пароль
-	if Hash(req.Password) != user.Password {
+	if err := VerifyPassword(user.Password, req.Password); err != nil {
 		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
 			Message: "Invalid email or password",
 			Code:    strPtr("INVALID_CREDENTIALS"),
@@ -1207,10 +1224,21 @@ func (s *ServerImplementation) UpdateUserProfile(ctx echo.Context) error {
 		})
 	}
 
+	// Безопасная обработка nullable полей
+	email := ""
+	if user.Email != nil {
+		email = *user.Email
+	}
+
+	fullName := user.Username // Fallback to username
+	if user.Name != nil {
+		fullName = *user.Name
+	}
+
 	profile := openapi.UserProfile{
 		Id:       user.ID,
-		Email:    openapi_types.Email(*user.Email),
-		FullName: *user.Name,
+		Email:    openapi_types.Email(email),
+		FullName: fullName,
 		Role:     user.Role,
 	}
 
@@ -1220,6 +1248,14 @@ func (s *ServerImplementation) UpdateUserProfile(ctx echo.Context) error {
 
 	// Если username изменен, генерируем новые токены
 	if usernameChanged && req.Username != nil {
+		// Отзываем все существующие сессии пользователя
+		if err := s.sessionRepo.RevokeAllUserSessions(ctx.Request().Context(), userID); err != nil {
+			return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+				Message: "Failed to revoke old sessions",
+				Code:    strPtr("SESSION_REVOKE_ERROR"),
+			})
+		}
+
 		accessToken, refreshToken, expiresIn, err := s.authService.GenerateTokens(userID, *req.Username, user.Role)
 		if err != nil {
 			return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
@@ -1326,15 +1362,23 @@ func (s *ServerImplementation) ChangeUserPassword(ctx echo.Context) error {
 	}
 
 	// Проверяем старый пароль
-	if Hash(req.OldPassword) != user.Password {
+	if err := VerifyPassword(user.Password, req.OldPassword); err != nil {
 		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
 			Message: "Invalid old password",
 			Code:    strPtr("INVALID_OLD_PASSWORD"),
 		})
 	}
 
+	// Хешируем новый пароль
+	newPasswordHash, err := HashPassword(req.NewPassword)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to hash new password",
+			Code:    strPtr("PASSWORD_HASH_ERROR"),
+		})
+	}
+
 	// Обновляем пароль
-	newPasswordHash := Hash(req.NewPassword)
 	if err := s.repo.UpdateUserPassword(ctx.Request().Context(), userID, newPasswordHash); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
 			Message: "Failed to update password",
