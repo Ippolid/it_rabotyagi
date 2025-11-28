@@ -2,15 +2,15 @@ package server
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"golang.org/x/crypto/bcrypt"
 	"it_rabotyagi/api/openapi"
+	"it_rabotyagi/internal/business/models"
 	"it_rabotyagi/internal/business/services"
 	"it_rabotyagi/internal/data/repositories"
 )
@@ -29,9 +29,11 @@ type ServerImplementation struct {
 	courseRepo     *repositories.CourseRepository
 	mentorRepo     *repositories.MentorRepository
 	permissionRepo PermissionChecker
+	statisticsRepo *repositories.StatisticsRepository
+	userService    *services.UserService
 }
 
-func NewServerImplementation(authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository, courseRepo *repositories.CourseRepository, mentorRepo *repositories.MentorRepository, permissionRepo PermissionChecker) *ServerImplementation {
+func NewServerImplementation(authService *services.AuthService, repo *repositories.UserRepository, sessionRepo *repositories.SessionRepository, questionRepo *repositories.QuestionRepository, courseRepo *repositories.CourseRepository, mentorRepo *repositories.MentorRepository, permissionRepo PermissionChecker, statisticsRepo *repositories.StatisticsRepository, userService *services.UserService) *ServerImplementation {
 	return &ServerImplementation{
 		authService:    authService,
 		repo:           repo,
@@ -40,12 +42,23 @@ func NewServerImplementation(authService *services.AuthService, repo *repositori
 		courseRepo:     courseRepo,
 		mentorRepo:     mentorRepo,
 		permissionRepo: permissionRepo,
+		statisticsRepo: statisticsRepo,
+		userService:    userService,
 	}
 }
 
-func Hash(password string) string {
-	hash := sha256.Sum256([]byte(password))
-	return hex.EncodeToString(hash[:])
+// HashPassword хеширует пароль используя bcrypt
+func HashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+// VerifyPassword проверяет соответствие пароля хешу
+func VerifyPassword(hashedPassword, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
 
 func (s *ServerImplementation) ensureEditor(ctx echo.Context) bool {
@@ -115,7 +128,16 @@ func (s *ServerImplementation) RegisterUser(ctx echo.Context) error {
 		})
 	}
 
-	userID, err := s.repo.CreateUser(ctx.Request().Context(), string(req.Email), req.Nickname, Hash(req.Password))
+	// Хешируем пароль
+	hashedPassword, err := HashPassword(req.Password)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to hash password",
+			Code:    strPtr("PASSWORD_HASH_ERROR"),
+		})
+	}
+
+	userID, err := s.repo.CreateUser(ctx.Request().Context(), string(req.Email), req.Nickname, hashedPassword)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
 			Message: "Failed to create user",
@@ -171,7 +193,7 @@ func (s *ServerImplementation) LoginUser(ctx echo.Context) error {
 	}
 
 	// Проверяем пароль
-	if Hash(req.Password) != user.Password {
+	if err := VerifyPassword(user.Password, req.Password); err != nil {
 		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
 			Message: "Invalid email or password",
 			Code:    strPtr("INVALID_CREDENTIALS"),
@@ -980,6 +1002,392 @@ func (s *ServerImplementation) CompleteModule(ctx echo.Context, courseId int, mo
 		ModuleId:    moduleId,
 		Completed:   true,
 		CompletedAt: completedAt,
+	})
+}
+
+// GetUserStatistics возвращает общую статистику пользователя
+// (GET /users/me/statistics)
+func (s *ServerImplementation) GetUserStatistics(ctx echo.Context) error {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Unauthorized",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	stats, err := s.statisticsRepo.GetOverallStatistics(ctx.Request().Context(), userID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to get statistics",
+			Code:    strPtr("STATISTICS_FETCH_ERROR"),
+		})
+	}
+
+	response := openapi.UserStatistics{
+		CoursesEnrolled:    stats.CoursesEnrolled,
+		CoursesCompleted:   stats.CoursesCompleted,
+		OverallProgressPct: stats.OverallProgressPct,
+		QuestionsStatistics: openapi.QuestionStatisticsSummary{
+			TotalSolved:       stats.QuestionStatistics.TotalSolved,
+			CorrectAnswersPct: stats.QuestionStatistics.CorrectAnswersPct,
+			TotalAttempts:     stats.QuestionStatistics.TotalAttempts,
+			AvgTimeSpent:      stats.QuestionStatistics.AvgTimeSpent,
+		},
+	}
+
+	return ctx.JSON(http.StatusOK, response)
+}
+
+// GetUserCourseStatistics возвращает детальную статистику по курсам
+// (GET /users/me/statistics/courses)
+func (s *ServerImplementation) GetUserCourseStatistics(ctx echo.Context) error {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Unauthorized",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	stats, err := s.statisticsRepo.GetCourseStatistics(ctx.Request().Context(), userID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to get course statistics",
+			Code:    strPtr("STATISTICS_FETCH_ERROR"),
+		})
+	}
+
+	items := make([]openapi.UserCourseStatisticsItem, 0, len(stats))
+	for _, stat := range stats {
+		items = append(items, openapi.UserCourseStatisticsItem{
+			CourseId:         stat.CourseID,
+			CourseTitle:      stat.CourseTitle,
+			TotalModules:     stat.TotalModules,
+			CompletedModules: stat.CompletedModules,
+			ProgressPct:      stat.ProgressPct,
+			StartedAt:        stat.StartedAt,
+			TimeSpent:        &stat.TimeSpent,
+		})
+	}
+
+	return ctx.JSON(http.StatusOK, openapi.UserCourseStatisticsList{
+		Items: items,
+	})
+}
+
+// GetUserQuestionStatistics возвращает статистику по вопросам
+// (GET /users/me/statistics/questions)
+func (s *ServerImplementation) GetUserQuestionStatistics(ctx echo.Context, params openapi.GetUserQuestionStatisticsParams) error {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Unauthorized",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	overallStats, err := s.statisticsRepo.GetQuestionStatisticsOverall(ctx.Request().Context(), userID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to get question statistics",
+			Code:    strPtr("STATISTICS_FETCH_ERROR"),
+		})
+	}
+
+	byCourseStats, err := s.statisticsRepo.GetQuestionStatisticsByCourse(ctx.Request().Context(), userID, params.CourseId)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to get question statistics by course",
+			Code:    strPtr("STATISTICS_FETCH_ERROR"),
+		})
+	}
+
+	byCourseItems := make([]openapi.QuestionStatisticsByCourse, 0, len(byCourseStats))
+	for _, stat := range byCourseStats {
+		byCourseItems = append(byCourseItems, openapi.QuestionStatisticsByCourse{
+			CourseId:    stat.CourseID,
+			CourseTitle: stat.CourseTitle,
+			Statistics: openapi.QuestionStatisticsSummary{
+				TotalSolved:       stat.Statistics.TotalSolved,
+				CorrectAnswersPct: stat.Statistics.CorrectAnswersPct,
+				TotalAttempts:     stat.Statistics.TotalAttempts,
+				AvgTimeSpent:      stat.Statistics.AvgTimeSpent,
+			},
+		})
+	}
+
+	response := openapi.UserQuestionStatistics{
+		Overall: openapi.QuestionStatisticsSummary{
+			TotalSolved:       overallStats.TotalSolved,
+			CorrectAnswersPct: overallStats.CorrectAnswersPct,
+			TotalAttempts:     overallStats.TotalAttempts,
+			AvgTimeSpent:      overallStats.AvgTimeSpent,
+		},
+		ByCourse: byCourseItems,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
+}
+
+// UpdateUserProfile обновляет профиль пользователя
+// (PATCH /users/me/profile)
+func (s *ServerImplementation) UpdateUserProfile(ctx echo.Context) error {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Unauthorized",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	var req openapi.UserProfileUpdateRequest
+	if err := ctx.Bind(&req); err != nil {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: "Invalid request body",
+			Code:    strPtr("INVALID_REQUEST"),
+		})
+	}
+
+	// Конвертируем openapi типы в business модели
+	var emailStr *string
+	if req.Email != nil {
+		email := string(*req.Email)
+		emailStr = &email
+	}
+
+	update := &models.UserProfileUpdate{
+		Username:    req.Username,
+		Name:        req.Name,
+		Email:       emailStr,
+		Description: req.Description,
+	}
+
+	// Валидация через UserService
+	if err := s.userService.ValidateProfileUpdate(update); err != nil {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: err.Error(),
+			Code:    strPtr("VALIDATION_ERROR"),
+		})
+	}
+
+	// Проверка уникальности username
+	usernameChanged := false
+	if req.Username != nil {
+		exists, err := s.repo.CheckUsernameExists(ctx.Request().Context(), *req.Username, userID)
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+				Message: "Failed to check username",
+				Code:    strPtr("USERNAME_CHECK_ERROR"),
+			})
+		}
+		if exists {
+			return ctx.JSON(http.StatusConflict, openapi.ErrorResponse{
+				Message: "Username already exists",
+				Code:    strPtr("USERNAME_CONFLICT"),
+			})
+		}
+		usernameChanged = true
+	}
+
+	// Проверка уникальности email
+	if emailStr != nil {
+		exists, err := s.repo.CheckEmailExists(ctx.Request().Context(), *emailStr, userID)
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+				Message: "Failed to check email",
+				Code:    strPtr("EMAIL_CHECK_ERROR"),
+			})
+		}
+		if exists {
+			return ctx.JSON(http.StatusConflict, openapi.ErrorResponse{
+				Message: "Email already exists",
+				Code:    strPtr("EMAIL_CONFLICT"),
+			})
+		}
+	}
+
+	// Обновление профиля
+	if err := s.repo.UpdateUserProfile(ctx.Request().Context(), userID, req.Username, req.Name, emailStr, req.Description); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to update profile",
+			Code:    strPtr("PROFILE_UPDATE_ERROR"),
+		})
+	}
+
+	// Получаем обновленный профиль
+	user, err := s.repo.GetUserByID(ctx.Request().Context(), userID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to get updated profile",
+			Code:    strPtr("PROFILE_FETCH_ERROR"),
+		})
+	}
+
+	// Безопасная обработка nullable полей
+	email := ""
+	if user.Email != nil {
+		email = *user.Email
+	}
+
+	fullName := user.Username // Fallback to username
+	if user.Name != nil {
+		fullName = *user.Name
+	}
+
+	profile := openapi.UserProfile{
+		Id:       user.ID,
+		Email:    openapi_types.Email(email),
+		FullName: fullName,
+		Role:     user.Role,
+	}
+
+	response := openapi.UserProfileUpdateResponse{
+		Profile: profile,
+	}
+
+	// Если username изменен, генерируем новые токены
+	if usernameChanged && req.Username != nil {
+		// Отзываем все существующие сессии пользователя
+		if err := s.sessionRepo.RevokeAllUserSessions(ctx.Request().Context(), userID); err != nil {
+			return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+				Message: "Failed to revoke old sessions",
+				Code:    strPtr("SESSION_REVOKE_ERROR"),
+			})
+		}
+
+		accessToken, refreshToken, expiresIn, err := s.authService.GenerateTokens(userID, *req.Username, user.Role)
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+				Message: "Failed to generate tokens",
+				Code:    strPtr("TOKEN_GENERATION_ERROR"),
+			})
+		}
+
+		// Создаем новую сессию
+		refreshExpiration := s.authService.GetRefreshTokenExpiration()
+		err = s.sessionRepo.CreateSession(ctx.Request().Context(), userID, refreshToken, time.Now().Add(refreshExpiration))
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+				Message: "Failed to create session",
+				Code:    strPtr("SESSION_CREATION_ERROR"),
+			})
+		}
+
+		tokens := &openapi.AuthTokens{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    expiresIn,
+		}
+		response.Tokens = tokens
+	}
+
+	return ctx.JSON(http.StatusOK, response)
+}
+
+// UpdateUserAvatar обновляет аватар пользователя
+// (PATCH /users/me/avatar)
+func (s *ServerImplementation) UpdateUserAvatar(ctx echo.Context) error {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Unauthorized",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	var req openapi.UserAvatarUpdateRequest
+	if err := ctx.Bind(&req); err != nil {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: "Invalid request body",
+			Code:    strPtr("INVALID_REQUEST"),
+		})
+	}
+
+	// Валидация URL
+	if err := s.userService.ValidateAvatarURL(req.AvatarUrl); err != nil {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: err.Error(),
+			Code:    strPtr("VALIDATION_ERROR"),
+		})
+	}
+
+	// Обновление аватара
+	if err := s.repo.UpdateUserAvatar(ctx.Request().Context(), userID, req.AvatarUrl); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to update avatar",
+			Code:    strPtr("AVATAR_UPDATE_ERROR"),
+		})
+	}
+
+	return ctx.JSON(http.StatusOK, openapi.UserAvatarResponse{
+		AvatarUrl: req.AvatarUrl,
+	})
+}
+
+// ChangeUserPassword изменяет пароль пользователя
+// (POST /users/me/password)
+func (s *ServerImplementation) ChangeUserPassword(ctx echo.Context) error {
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Unauthorized",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	var req openapi.ChangePasswordRequest
+	if err := ctx.Bind(&req); err != nil {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: "Invalid request body",
+			Code:    strPtr("INVALID_REQUEST"),
+		})
+	}
+
+	// Валидация нового пароля
+	if err := s.userService.ValidatePassword(req.NewPassword); err != nil {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: err.Error(),
+			Code:    strPtr("VALIDATION_ERROR"),
+		})
+	}
+
+	// Получаем текущего пользователя для проверки старого пароля
+	user, err := s.repo.GetUserByID(ctx.Request().Context(), userID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to get user",
+			Code:    strPtr("USER_FETCH_ERROR"),
+		})
+	}
+
+	// Проверяем старый пароль
+	if err := VerifyPassword(user.Password, req.OldPassword); err != nil {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Invalid old password",
+			Code:    strPtr("INVALID_OLD_PASSWORD"),
+		})
+	}
+
+	// Хешируем новый пароль
+	newPasswordHash, err := HashPassword(req.NewPassword)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to hash new password",
+			Code:    strPtr("PASSWORD_HASH_ERROR"),
+		})
+	}
+
+	// Обновляем пароль
+	if err := s.repo.UpdateUserPassword(ctx.Request().Context(), userID, newPasswordHash); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to update password",
+			Code:    strPtr("PASSWORD_UPDATE_ERROR"),
+		})
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]string{
+		"message": "Password successfully changed",
 	})
 }
 

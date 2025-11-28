@@ -90,3 +90,6 @@ bin/
 /agents/README.md
 /agents/testing-instructions.md
 /agents/*
+/CLAUDE.md
+/claude/
+/.claude/

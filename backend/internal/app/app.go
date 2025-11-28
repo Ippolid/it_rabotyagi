@@ -45,6 +45,7 @@ func Run() error {
 	courseRepo := repositories.NewCourseRepository(db)
 	mentorRepo := repositories.NewMentorRepository(db)
 	permissionRepo := repositories.NewPermissionRepository(db)
+	statisticsRepo := repositories.NewStatisticsRepository(db)
 	logger.Info("Initializing repositories...")
 
 	// BUSINESS LAYER
@@ -54,7 +55,7 @@ func Run() error {
 	// PRESENTATION LAYER
 	e := echo.New()
 	e.HideBanner = true
-	if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo, questionRepo, courseRepo, mentorRepo, permissionRepo); err != nil {
+	if err := server.RegisterRoutes(e, authService, userRepo, sessionRepo, questionRepo, courseRepo, mentorRepo, permissionRepo, statisticsRepo); err != nil {
 		return fmt.Errorf("failed to register routes: %w", err)
 	}
 	logger.Info("Routes registered successfully...")

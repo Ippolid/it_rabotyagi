@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 	"it_rabotyagi/internal/business/models"
 	"it_rabotyagi/internal/data/database"
 
@@ -72,8 +73,8 @@ func (u *UserRepository) GetUserByID(ctx context.Context, userID int) (*models.U
 
 // GetUserByEmail получает пользователя по email
 func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	query := `SELECT id, username, password, email, telegram_id, google_id, github_id, 
-              name, avatar_url, description, role, created_at, updated_at 
+	query := `SELECT id, username, password, email, telegram_id, google_id, github_id,
+              name, avatar_url, description, role, created_at, updated_at
               FROM users WHERE email = $1`
 
 	user := &models.User{}
@@ -97,4 +98,73 @@ func (u *UserRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 	}
 
 	return user, nil
+}
+
+// UpdateUserProfile обновляет основные данные профиля пользователя
+func (u *UserRepository) UpdateUserProfile(ctx context.Context, userID int, username, name, email, description *string) error {
+	query := "UPDATE users SET updated_at = NOW()"
+	args := []interface{}{userID}
+	argPos := 2
+
+	if username != nil {
+		query += fmt.Sprintf(", username = $%d", argPos)
+		args = append(args, *username)
+		argPos++
+	}
+	if name != nil {
+		query += fmt.Sprintf(", name = $%d", argPos)
+		args = append(args, *name)
+		argPos++
+	}
+	if email != nil {
+		query += fmt.Sprintf(", email = $%d", argPos)
+		args = append(args, *email)
+		argPos++
+	}
+	if description != nil {
+		query += fmt.Sprintf(", description = $%d", argPos)
+		args = append(args, *description)
+		argPos++
+	}
+
+	query += " WHERE id = $1"
+
+	_, err := u.db.Pool.Exec(ctx, query, args...)
+	return err
+}
+
+// UpdateUserAvatar обновляет avatar_url пользователя
+func (u *UserRepository) UpdateUserAvatar(ctx context.Context, userID int, avatarURL string) error {
+	query := "UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2"
+	_, err := u.db.Pool.Exec(ctx, query, avatarURL, userID)
+	return err
+}
+
+// UpdateUserPassword обновляет хеш пароля пользователя
+func (u *UserRepository) UpdateUserPassword(ctx context.Context, userID int, hashedPassword string) error {
+	query := "UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2"
+	_, err := u.db.Pool.Exec(ctx, query, hashedPassword, userID)
+	return err
+}
+
+// CheckUsernameExists проверяет существование username (исключая текущего пользователя)
+func (u *UserRepository) CheckUsernameExists(ctx context.Context, username string, excludeUserID int) (bool, error) {
+	query := "SELECT EXISTS(SELECT 1 FROM users WHERE username = $1 AND id != $2)"
+	var exists bool
+	err := u.db.Pool.QueryRow(ctx, query, username, excludeUserID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+// CheckEmailExists проверяет существование email (исключая текущего пользователя)
+func (u *UserRepository) CheckEmailExists(ctx context.Context, email string, excludeUserID int) (bool, error) {
+	query := "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 AND id != $2)"
+	var exists bool
+	err := u.db.Pool.QueryRow(ctx, query, email, excludeUserID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
