@@ -27,11 +27,25 @@ const (
 	QuestionDetailDifficultyMedium QuestionDetailDifficulty = "medium"
 )
 
+// Defines values for QuestionListItemDifficulty.
+const (
+	QuestionListItemDifficultyEasy   QuestionListItemDifficulty = "easy"
+	QuestionListItemDifficultyHard   QuestionListItemDifficulty = "hard"
+	QuestionListItemDifficultyMedium QuestionListItemDifficulty = "medium"
+)
+
 // Defines values for QuestionUpdateRequestDifficulty.
 const (
-	Easy   QuestionUpdateRequestDifficulty = "easy"
-	Hard   QuestionUpdateRequestDifficulty = "hard"
-	Medium QuestionUpdateRequestDifficulty = "medium"
+	QuestionUpdateRequestDifficultyEasy   QuestionUpdateRequestDifficulty = "easy"
+	QuestionUpdateRequestDifficultyHard   QuestionUpdateRequestDifficulty = "hard"
+	QuestionUpdateRequestDifficultyMedium QuestionUpdateRequestDifficulty = "medium"
+)
+
+// Defines values for ListQuestionsParamsDifficulty.
+const (
+	Easy   ListQuestionsParamsDifficulty = "easy"
+	Hard   ListQuestionsParamsDifficulty = "hard"
+	Medium ListQuestionsParamsDifficulty = "medium"
 )
 
 // AuthLoginRequest defines model for AuthLoginRequest.
@@ -270,7 +284,12 @@ type QuestionList struct {
 
 // QuestionListItem defines model for QuestionListItem.
 type QuestionListItem struct {
-	Id int `json:"id"`
+	// CompanyTags Список компаний, в которых задавали этот вопрос
+	CompanyTags *[]string `json:"companyTags,omitempty"`
+
+	// Difficulty Уровень сложности вопроса
+	Difficulty QuestionListItemDifficulty `json:"difficulty"`
+	Id         int                        `json:"id"`
 
 	// Technology Технология, к которой относится вопрос
 	Technology string `json:"technology"`
@@ -278,6 +297,9 @@ type QuestionListItem struct {
 	// Title Название вопроса
 	Title string `json:"title"`
 }
+
+// QuestionListItemDifficulty Уровень сложности вопроса
+type QuestionListItemDifficulty string
 
 // QuestionStatisticsByCourse defines model for QuestionStatisticsByCourse.
 type QuestionStatisticsByCourse struct {
@@ -425,8 +447,17 @@ type ListMentorsParams struct {
 
 // ListQuestionsParams defines parameters for ListQuestions.
 type ListQuestionsParams struct {
-	// Technology Фильтр по технологии
+	// Search Поиск по названию и содержанию вопроса
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
+	// Technology Фильтр по технологии (языку программирования)
 	Technology *string `form:"technology,omitempty" json:"technology,omitempty"`
+
+	// Difficulty Фильтр по уровню сложности
+	Difficulty *ListQuestionsParamsDifficulty `form:"difficulty,omitempty" json:"difficulty,omitempty"`
+
+	// Company Фильтр по компании
+	Company *string `form:"company,omitempty" json:"company,omitempty"`
 
 	// Limit Количество вопросов в выдаче
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -434,6 +465,9 @@ type ListQuestionsParams struct {
 	// Offset Смещение для постраничной навигации
 	Offset *int `form:"offset,omitempty" json:"offset,omitempty"`
 }
+
+// ListQuestionsParamsDifficulty defines parameters for ListQuestions.
+type ListQuestionsParamsDifficulty string
 
 // GetUserQuestionStatisticsParams defines parameters for GetUserQuestionStatistics.
 type GetUserQuestionStatisticsParams struct {

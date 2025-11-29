@@ -417,7 +417,7 @@ func (s *ServerImplementation) Logout(ctx echo.Context) error {
 // (GET /questions)
 func (s *ServerImplementation) ListQuestions(ctx echo.Context, params openapi.ListQuestionsParams) error {
 	// Определяем лимит и оффсет
-	limit := 30 // по умолчанию
+	limit := 20 // по умолчанию
 	if params.Limit != nil {
 		limit = *params.Limit
 	}
@@ -427,8 +427,21 @@ func (s *ServerImplementation) ListQuestions(ctx echo.Context, params openapi.Li
 		offset = *params.Offset
 	}
 
+	// Формируем фильтры
+	filters := repositories.QuestionFilters{
+		Search:     params.Search,
+		Technology: params.Technology,
+		Company:    params.Company,
+	}
+
+	// Преобразуем difficulty из enum в string
+	if params.Difficulty != nil {
+		difficultyStr := string(*params.Difficulty)
+		filters.Difficulty = &difficultyStr
+	}
+
 	// Получаем вопросы из БД
-	questions, total, err := s.questionRepo.GetAllQuestions(ctx.Request().Context(), params.Technology, limit, offset)
+	questions, total, err := s.questionRepo.GetAllQuestions(ctx.Request().Context(), filters, limit, offset)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
 			Message: "Failed to fetch questions",
@@ -439,10 +452,17 @@ func (s *ServerImplementation) ListQuestions(ctx echo.Context, params openapi.Li
 	// Преобразуем в формат OpenAPI
 	items := make([]openapi.QuestionListItem, 0, len(questions))
 	for _, q := range questions {
+		companyTags := make([]string, 0)
+		if q.CompanyTags != nil {
+			companyTags = q.CompanyTags
+		}
+
 		items = append(items, openapi.QuestionListItem{
-			Id:         q.ID,
-			Title:      q.Title,
-			Technology: q.Technology,
+			Id:          q.ID,
+			Title:       q.Title,
+			Technology:  q.Technology,
+			Difficulty:  openapi.QuestionListItemDifficulty(q.Difficulty),
+			CompanyTags: &companyTags,
 		})
 	}
 

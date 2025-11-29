@@ -451,11 +451,32 @@ func (w *ServerInterfaceWrapper) ListQuestions(ctx echo.Context) error {
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListQuestionsParams
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", ctx.QueryParams(), &params.Search)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter search: %s", err))
+	}
+
 	// ------------- Optional query parameter "technology" -------------
 
 	err = runtime.BindQueryParameter("form", true, false, "technology", ctx.QueryParams(), &params.Technology)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter technology: %s", err))
+	}
+
+	// ------------- Optional query parameter "difficulty" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "difficulty", ctx.QueryParams(), &params.Difficulty)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter difficulty: %s", err))
+	}
+
+	// ------------- Optional query parameter "company" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "company", ctx.QueryParams(), &params.Company)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter company: %s", err))
 	}
 
 	// ------------- Optional query parameter "limit" -------------

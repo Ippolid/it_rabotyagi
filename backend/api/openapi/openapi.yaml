@@ -285,11 +285,27 @@ paths:
       operationId: listQuestions
       description: >
         Возвращает список всех вопросов с их названиями и технологиями.
-        Можно отфильтровать по технологии.
+        Поддерживает фильтрацию по технологии, сложности, компании и поиск по тексту.
       parameters:
+        - name: search
+          in: query
+          description: Поиск по названию и содержанию вопроса
+          schema:
+            type: string
         - name: technology
           in: query
-          description: Фильтр по технологии
+          description: Фильтр по технологии (языку программирования)
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          description: Фильтр по уровню сложности
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+        - name: company
+          in: query
+          description: Фильтр по компании
           schema:
             type: string
         - name: limit
@@ -299,12 +315,14 @@ paths:
             type: integer
             minimum: 1
             maximum: 100
+            default: 20
         - name: offset
           in: query
           description: Смещение для постраничной навигации
           schema:
             type: integer
             minimum: 0
+            default: 0
       responses:
         '200':
           description: Список вопросов
@@ -913,7 +931,7 @@ components:
           description: Общее количество доступных менторов
     QuestionListItem:
       type: object
-      required: [id, title, technology]
+      required: [id, title, technology, difficulty]
       properties:
         id:
           type: integer
@@ -923,6 +941,15 @@ components:
         technology:
           type: string
           description: Технология, к которой относится вопрос
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+          description: Уровень сложности вопроса
+        companyTags:
+          type: array
+          items:
+            type: string
+          description: Список компаний, в которых задавали этот вопрос
     QuestionList:
       type: object
       required: [items]
