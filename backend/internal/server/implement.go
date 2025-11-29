@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -449,6 +450,18 @@ func (s *ServerImplementation) ListQuestions(ctx echo.Context, params openapi.Li
 		})
 	}
 
+	// Получаем список решенных вопросов для авторизованного пользователя
+	var solvedMap map[int]bool
+	if userID, ok := GetUserID(ctx); ok {
+		solvedMap, err = s.statisticsRepo.GetSolvedQuestionIDs(ctx.Request().Context(), userID)
+		if err != nil {
+			// Не критичная ошибка, просто логируем и продолжаем без маркировки
+			solvedMap = make(map[int]bool)
+		}
+	} else {
+		solvedMap = make(map[int]bool)
+	}
+
 	// Преобразуем в формат OpenAPI
 	items := make([]openapi.QuestionListItem, 0, len(questions))
 	for _, q := range questions {
@@ -457,12 +470,15 @@ func (s *ServerImplementation) ListQuestions(ctx echo.Context, params openapi.Li
 			companyTags = q.CompanyTags
 		}
 
+		solved := solvedMap[q.ID]
+
 		items = append(items, openapi.QuestionListItem{
 			Id:          q.ID,
 			Title:       q.Title,
 			Technology:  q.Technology,
 			Difficulty:  openapi.QuestionListItemDifficulty(q.Difficulty),
 			CompanyTags: &companyTags,
+			Solved:      &solved,
 		})
 	}
 
@@ -486,18 +502,30 @@ func (s *ServerImplementation) GetQuestionById(ctx echo.Context, id int) error {
 	}
 
 	resp := openapi.QuestionDetail{
-		Id:            question.ID,
-		Title:         question.Title,
-		Content:       question.Content,
-		Difficulty:    openapi.QuestionDetailDifficulty(question.Difficulty),
-		Technology:    question.Technology,
-		Options:       question.Options,
-		CorrectAnswer: question.CorrectAnswer,
-		Explanation:   question.Explanation,
+		Id:         question.ID,
+		Title:      question.Title,
+		Content:    question.Content,
+		Difficulty: openapi.QuestionDetailDifficulty(question.Difficulty),
+		Technology: question.Technology,
+	}
+
+	// Опциональные поля
+	if len(question.Options) > 0 {
+		resp.Options = &question.Options
+	}
+	if question.CorrectAnswer != "" {
+		resp.CorrectAnswer = &question.CorrectAnswer
+	}
+	if question.Explanation != nil {
+		resp.Explanation = question.Explanation
 	}
 	if len(question.Tags) > 0 {
 		resp.Tags = &question.Tags
 	}
+
+	// Проверяем, является ли вопрос открытым
+	isOpenEnded := len(question.Options) == 0 || question.CorrectAnswer == ""
+	resp.IsOpenEnded = &isOpenEnded
 
 	return ctx.JSON(http.StatusOK, resp)
 }
@@ -522,7 +550,17 @@ func (s *ServerImplementation) CreateQuestion(ctx echo.Context) error {
 		tags = *req.Tags
 	}
 
-	id, err := s.questionRepo.CreateQuestion(ctx.Request().Context(), req.Title, req.Content, string(req.Difficulty), req.Technology, tags, req.Options, req.CorrectAnswer, req.Explanation)
+	options := []string{}
+	if req.Options != nil {
+		options = *req.Options
+	}
+
+	correctAnswer := ""
+	if req.CorrectAnswer != nil {
+		correctAnswer = *req.CorrectAnswer
+	}
+
+	id, err := s.questionRepo.CreateQuestion(ctx.Request().Context(), req.Title, req.Content, string(req.Difficulty), req.Technology, tags, options, correctAnswer, req.Explanation)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
 			Message: "Failed to create question",
@@ -590,6 +628,66 @@ func (s *ServerImplementation) DeleteQuestion(ctx echo.Context, id int) error {
 		})
 	}
 	return ctx.NoContent(http.StatusNoContent)
+}
+
+// SubmitQuestionAnswer принимает ответ пользователя на вопрос
+// (POST /questions/{id}/submit)
+func (s *ServerImplementation) SubmitQuestionAnswer(ctx echo.Context, id int) error {
+	// Получаем userID из контекста
+	userID, ok := GetUserID(ctx)
+	if !ok {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "User not authenticated",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	// Парсим request body
+	var req openapi.QuestionSubmitRequest
+	if err := ctx.Bind(&req); err != nil {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: "Invalid request body",
+			Code:    strPtr("INVALID_REQUEST"),
+		})
+	}
+
+	// Получаем вопрос из БД
+	question, err := s.questionRepo.GetQuestionByID(ctx.Request().Context(), id)
+	if err != nil {
+		return ctx.JSON(http.StatusNotFound, openapi.ErrorResponse{
+			Message: "Question not found",
+			Code:    strPtr("QUESTION_NOT_FOUND"),
+		})
+	}
+
+	// Проверяем правильность ответа
+	isCorrect := req.UserAnswer == question.CorrectAnswer
+
+	// Проверяем, был ли вопрос уже решен
+	_, alreadySolved, err := s.statisticsRepo.CheckIfQuestionSolved(ctx.Request().Context(), userID, id)
+	if err != nil {
+		// Логируем ошибку, но не останавливаем выполнение
+		fmt.Printf("Error checking if question solved: %v\n", err)
+	}
+
+	// Сохраняем попытку (предполагаем, что пользователь потратил 30 секунд)
+	timeSpent := 30 * time.Second
+	if err := s.statisticsRepo.RecordQuestionAttempt(ctx.Request().Context(), userID, id, isCorrect, timeSpent); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to record answer",
+			Code:    strPtr("RECORD_ANSWER_ERROR"),
+		})
+	}
+
+	// Формируем ответ
+	resp := openapi.QuestionSubmitResponse{
+		IsCorrect:     isCorrect,
+		CorrectAnswer: question.CorrectAnswer,
+		Explanation:   question.Explanation,
+		AlreadySolved: &alreadySolved,
+	}
+
+	return ctx.JSON(http.StatusOK, resp)
 }
 
 // ListCourses получает список курсов

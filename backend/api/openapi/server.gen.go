@@ -82,6 +82,9 @@ type ServerInterface interface {
 	// Обновить вопрос
 	// (PATCH /questions/{id})
 	UpdateQuestion(ctx echo.Context, id int) error
+	// Отправить ответ на вопрос
+	// (POST /questions/{id}/submit)
+	SubmitQuestionAnswer(ctx echo.Context, id int) error
 	// Получить профиль текущего пользователя
 	// (GET /users/me)
 	GetCurrentUser(ctx echo.Context) error
@@ -561,6 +564,24 @@ func (w *ServerInterfaceWrapper) UpdateQuestion(ctx echo.Context) error {
 	return err
 }
 
+// SubmitQuestionAnswer converts echo context to params.
+func (w *ServerInterfaceWrapper) SubmitQuestionAnswer(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.SubmitQuestionAnswer(ctx, id)
+	return err
+}
+
 // GetCurrentUser converts echo context to params.
 func (w *ServerInterfaceWrapper) GetCurrentUser(ctx echo.Context) error {
 	var err error
@@ -698,6 +719,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.DELETE(baseURL+"/questions/:id", wrapper.DeleteQuestion)
 	router.GET(baseURL+"/questions/:id", wrapper.GetQuestionById)
 	router.PATCH(baseURL+"/questions/:id", wrapper.UpdateQuestion)
+	router.POST(baseURL+"/questions/:id/submit", wrapper.SubmitQuestionAnswer)
 	router.GET(baseURL+"/users/me", wrapper.GetCurrentUser)
 	router.PATCH(baseURL+"/users/me/avatar", wrapper.UpdateUserAvatar)
 	router.POST(baseURL+"/users/me/password", wrapper.ChangeUserPassword)

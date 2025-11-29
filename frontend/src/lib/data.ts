@@ -116,6 +116,45 @@ export const mentors: Mentor[] = [
   }
 ];
 
+// API Response Types for Questions
+export type QuestionDifficulty = 'easy' | 'medium' | 'hard';
+
+export interface QuestionListItem {
+  id: number;
+  title: string;
+  technology: string;
+  difficulty: QuestionDifficulty;
+  companyTags: string[];
+  solved?: boolean;
+}
+
+export interface QuestionListResponse {
+  items: QuestionListItem[];
+  total: number;
+}
+
+export interface QuestionDetail {
+  id: number;
+  title: string;
+  content: string;
+  difficulty: QuestionDifficulty;
+  technology: string;
+  options?: string[];
+  correctAnswer?: string;
+  explanation?: string;
+  tags?: string[];
+  isOpenEnded?: boolean;
+}
+
+export interface QuestionFilters {
+  search?: string;
+  technology?: string;
+  difficulty?: QuestionDifficulty;
+  company?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export const questions: Question[] = [
   {
     id: '1',

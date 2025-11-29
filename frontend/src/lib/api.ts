@@ -159,8 +159,37 @@ export function listMentors() {
   return request<{ items: any[]; total?: number }>('/mentors');
 }
 
-export function listQuestions() {
-  return request<{ items: any[]; total?: number }>('/questions');
+export function listQuestions(filters?: import('./data').QuestionFilters) {
+  const params = new URLSearchParams();
+
+  if (filters?.search) params.append('search', filters.search);
+  if (filters?.technology) params.append('technology', filters.technology);
+  if (filters?.difficulty) params.append('difficulty', filters.difficulty);
+  if (filters?.company) params.append('company', filters.company);
+  if (filters?.limit) params.append('limit', String(filters.limit));
+  if (filters?.offset) params.append('offset', String(filters.offset));
+
+  const query = params.toString();
+  const path = query ? `/questions?${query}` : '/questions';
+
+  return request<import('./data').QuestionListResponse>(path);
+}
+
+export function getQuestionById(id: number | string) {
+  return request<import('./data').QuestionDetail>(`/questions/${id}`);
+}
+
+export function submitQuestionAnswer(id: number | string, userAnswer: string) {
+  return request<{
+    isCorrect: boolean;
+    correctAnswer: string;
+    explanation?: string;
+    alreadySolved?: boolean;
+  }>(`/questions/${id}/submit`, {
+    method: 'POST',
+    body: JSON.stringify({ userAnswer }),
+    auth: true,
+  });
 }
 
 // Statistics API

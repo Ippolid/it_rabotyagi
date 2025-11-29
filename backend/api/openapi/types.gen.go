@@ -230,14 +230,21 @@ type ModuleUpdateRequest struct {
 
 // QuestionCreateRequest defines model for QuestionCreateRequest.
 type QuestionCreateRequest struct {
-	Content       string                          `json:"content"`
-	CorrectAnswer string                          `json:"correctAnswer"`
+	Content string `json:"content"`
+
+	// CorrectAnswer Правильный ответ (опционально, для вопросов с выбором)
+	CorrectAnswer *string                         `json:"correctAnswer,omitempty"`
 	Difficulty    QuestionCreateRequestDifficulty `json:"difficulty"`
 	Explanation   *string                         `json:"explanation,omitempty"`
-	Options       []string                        `json:"options"`
-	Tags          *[]string                       `json:"tags,omitempty"`
-	Technology    string                          `json:"technology"`
-	Title         string                          `json:"title"`
+
+	// IsOpenEnded Является ли вопрос открытым (без вариантов ответа)
+	IsOpenEnded *bool `json:"isOpenEnded,omitempty"`
+
+	// Options Варианты ответов (опционально, для вопросов с выбором)
+	Options    *[]string `json:"options,omitempty"`
+	Tags       *[]string `json:"tags,omitempty"`
+	Technology string    `json:"technology"`
+	Title      string    `json:"title"`
 }
 
 // QuestionCreateRequestDifficulty defines model for QuestionCreateRequest.Difficulty.
@@ -248,18 +255,21 @@ type QuestionDetail struct {
 	// Content Полный текст вопроса
 	Content string `json:"content"`
 
-	// CorrectAnswer Правильный ответ
-	CorrectAnswer string `json:"correctAnswer"`
+	// CorrectAnswer Правильный ответ (опционально, для вопросов с выбором)
+	CorrectAnswer *string `json:"correctAnswer,omitempty"`
 
 	// Difficulty Уровень сложности вопроса
 	Difficulty QuestionDetailDifficulty `json:"difficulty"`
 
-	// Explanation Объяснение правильного ответа
+	// Explanation Объяснение или примерный ответ
 	Explanation *string `json:"explanation,omitempty"`
 	Id          int     `json:"id"`
 
-	// Options Варианты ответов
-	Options []string `json:"options"`
+	// IsOpenEnded Является ли вопрос открытым (без вариантов ответа)
+	IsOpenEnded *bool `json:"isOpenEnded,omitempty"`
+
+	// Options Варианты ответов (опционально, для вопросов с выбором)
+	Options *[]string `json:"options,omitempty"`
 
 	// Tags Теги/метки вопроса
 	Tags *[]string `json:"tags,omitempty"`
@@ -290,6 +300,9 @@ type QuestionListItem struct {
 	// Difficulty Уровень сложности вопроса
 	Difficulty QuestionListItemDifficulty `json:"difficulty"`
 	Id         int                        `json:"id"`
+
+	// Solved Был ли вопрос решен текущим пользователем (только для авторизованных)
+	Solved *bool `json:"solved,omitempty"`
 
 	// Technology Технология, к которой относится вопрос
 	Technology string `json:"technology"`
@@ -323,12 +336,34 @@ type QuestionStatisticsSummary struct {
 	TotalSolved int `json:"totalSolved"`
 }
 
+// QuestionSubmitRequest defines model for QuestionSubmitRequest.
+type QuestionSubmitRequest struct {
+	// UserAnswer Ответ пользователя
+	UserAnswer string `json:"userAnswer"`
+}
+
+// QuestionSubmitResponse defines model for QuestionSubmitResponse.
+type QuestionSubmitResponse struct {
+	// AlreadySolved Был ли вопрос уже решен ранее
+	AlreadySolved *bool `json:"alreadySolved,omitempty"`
+
+	// CorrectAnswer Правильный ответ на вопрос
+	CorrectAnswer string `json:"correctAnswer"`
+
+	// Explanation Объяснение правильного ответа
+	Explanation *string `json:"explanation,omitempty"`
+
+	// IsCorrect Правильный ли ответ пользователя
+	IsCorrect bool `json:"isCorrect"`
+}
+
 // QuestionUpdateRequest defines model for QuestionUpdateRequest.
 type QuestionUpdateRequest struct {
 	Content       *string                          `json:"content,omitempty"`
 	CorrectAnswer *string                          `json:"correctAnswer,omitempty"`
 	Difficulty    *QuestionUpdateRequestDifficulty `json:"difficulty,omitempty"`
 	Explanation   *string                          `json:"explanation,omitempty"`
+	IsOpenEnded   *bool                            `json:"isOpenEnded,omitempty"`
 	Options       *[]string                        `json:"options,omitempty"`
 	Tags          *[]string                        `json:"tags,omitempty"`
 	Technology    *string                          `json:"technology,omitempty"`
@@ -501,6 +536,9 @@ type CreateQuestionJSONRequestBody = QuestionCreateRequest
 
 // UpdateQuestionJSONRequestBody defines body for UpdateQuestion for application/json ContentType.
 type UpdateQuestionJSONRequestBody = QuestionUpdateRequest
+
+// SubmitQuestionAnswerJSONRequestBody defines body for SubmitQuestionAnswer for application/json ContentType.
+type SubmitQuestionAnswerJSONRequestBody = QuestionSubmitRequest
 
 // UpdateUserAvatarJSONRequestBody defines body for UpdateUserAvatar for application/json ContentType.
 type UpdateUserAvatarJSONRequestBody = UserAvatarUpdateRequest
