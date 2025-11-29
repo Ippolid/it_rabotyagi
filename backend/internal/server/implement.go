@@ -308,10 +308,12 @@ func (s *ServerImplementation) GetCurrentUser(ctx echo.Context) error {
 	}
 
 	profile := openapi.UserProfile{
-		Id:       user.ID,
-		Email:    openapi_types.Email(email),
-		FullName: fullName,
-		Role:     role,
+		Id:          user.ID,
+		Email:       openapi_types.Email(email),
+		FullName:    fullName,
+		Role:        role,
+		AvatarUrl:   user.AvatarURL,
+		Description: user.Description,
 	}
 
 	return ctx.JSON(http.StatusOK, profile)

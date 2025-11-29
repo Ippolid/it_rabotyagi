@@ -295,10 +295,10 @@ export function Landing({ onNavigate }: { onNavigate: (view: any) => void }) {
                   Присоединяйся к платформе, которая меняет подход к обучению инженеров. 
                   Начни бесплатный пробный период.
                </p>
-               <Button 
-                  size="lg" 
+               <Button
+                  size="lg"
                   className="h-16 px-10 text-xl rounded-full bg-white text-gray-900 hover:bg-gray-100 shadow-[0_0_40px_rgba(255,255,255,0.3)] hover:scale-105 transition-all duration-300"
-                  onClick={() => onNavigate('auth')}
+                  onClick={() => onNavigate('questions')}
                >
                   Начать сейчас
                </Button>

@@ -347,9 +347,14 @@ type UserCourseStatisticsList struct {
 
 // UserProfile defines model for UserProfile.
 type UserProfile struct {
-	Email    openapi_types.Email `json:"email"`
-	FullName string              `json:"fullName"`
-	Id       int                 `json:"id"`
+	// AvatarUrl URL аватара пользователя
+	AvatarUrl *string `json:"avatarUrl"`
+
+	// Description Описание профиля пользователя
+	Description *string             `json:"description"`
+	Email       openapi_types.Email `json:"email"`
+	FullName    string              `json:"fullName"`
+	Id          int                 `json:"id"`
 
 	// Role Роль пользователя в системе
 	Role string `json:"role"`
