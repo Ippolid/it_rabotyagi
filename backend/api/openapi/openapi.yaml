@@ -431,6 +431,42 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /questions/{id}/submit:
+    post:
+      tags: [Questions]
+      summary: Отправить ответ на вопрос
+      operationId: submitQuestionAnswer
+      description: >
+        Принимает ответ пользователя на вопрос и возвращает результат проверки.
+        Сохраняет статистику ответа для отображения в профиле пользователя.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID вопроса
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionSubmitRequest'
+      responses:
+        '200':
+          description: Результат проверки ответа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionSubmitResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /courses:
     get:
       tags: [Courses]
@@ -785,7 +821,7 @@ components:
   schemas:
     QuestionCreateRequest:
       type: object
-      required: [title, content, difficulty, technology, options, correctAnswer]
+      required: [title, content, difficulty, technology]
       properties:
         title:
           type: string
@@ -804,10 +840,15 @@ components:
           type: array
           items:
             type: string
+          description: Варианты ответов (опционально, для вопросов с выбором)
         correctAnswer:
           type: string
+          description: Правильный ответ (опционально, для вопросов с выбором)
         explanation:
           type: string
+        isOpenEnded:
+          type: boolean
+          description: Является ли вопрос открытым (без вариантов ответа)
     QuestionUpdateRequest:
       type: object
       properties:
@@ -832,6 +873,31 @@ components:
           type: string
         explanation:
           type: string
+        isOpenEnded:
+          type: boolean
+    QuestionSubmitRequest:
+      type: object
+      required: [userAnswer]
+      properties:
+        userAnswer:
+          type: string
+          description: Ответ пользователя
+    QuestionSubmitResponse:
+      type: object
+      required: [isCorrect, correctAnswer]
+      properties:
+        isCorrect:
+          type: boolean
+          description: Правильный ли ответ пользователя
+        correctAnswer:
+          type: string
+          description: Правильный ответ на вопрос
+        explanation:
+          type: string
+          description: Объяснение правильного ответа
+        alreadySolved:
+          type: boolean
+          description: Был ли вопрос уже решен ранее
     AuthRegisterRequest:
       type: object
       required: [email, password, nickname]
@@ -950,6 +1016,9 @@ components:
           items:
             type: string
           description: Список компаний, в которых задавали этот вопрос
+        solved:
+          type: boolean
+          description: Был ли вопрос решен текущим пользователем (только для авторизованных)
     QuestionList:
       type: object
       required: [items]
@@ -964,7 +1033,7 @@ components:
           description: Общее количество доступных вопросов
     QuestionDetail:
       type: object
-      required: [id, title, content, difficulty, options, correctAnswer, technology]
+      required: [id, title, content, difficulty, technology]
       properties:
         id:
           type: integer
@@ -985,18 +1054,21 @@ components:
           type: array
           items:
             type: string
-          description: Варианты ответов
+          description: Варианты ответов (опционально, для вопросов с выбором)
         correctAnswer:
           type: string
-          description: Правильный ответ
+          description: Правильный ответ (опционально, для вопросов с выбором)
         explanation:
           type: string
-          description: Объяснение правильного ответа
+          description: Объяснение или примерный ответ
         tags:
           type: array
           items:
             type: string
           description: Теги/метки вопроса
+        isOpenEnded:
+          type: boolean
+          description: Является ли вопрос открытым (без вариантов ответа)
     CourseList:
       type: object
       required: [items]

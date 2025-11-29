@@ -5,17 +5,19 @@ import { Landing } from './components/pages/Landing';
 import { Courses } from './components/pages/Courses';
 import { CourseDetail } from './components/pages/CourseDetail';
 import { Questions } from './components/pages/Questions';
+import { QuestionDetail } from './components/pages/QuestionDetail';
 import { Mentors } from './components/pages/Mentors';
 import { Auth } from './components/pages/Auth';
 import { Dashboard } from './components/pages/Dashboard';
 import { DesignSystem } from './components/pages/DesignSystem';
 import { clearTokens, getProfile, getStoredTokens } from './lib/api';
 
-type View = 'landing' | 'courses' | 'course-detail' | 'questions' | 'mentors' | 'dashboard' | 'auth' | 'design-system';
+type View = 'landing' | 'courses' | 'course-detail' | 'questions' | 'question-detail' | 'mentors' | 'dashboard' | 'auth' | 'design-system';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
@@ -34,6 +36,15 @@ export default function App() {
 
   const syncFromLocation = () => {
     const path = window.location.pathname;
+
+    // Check /questions/:id BEFORE /questions
+    if (path.startsWith('/questions/')) {
+      const id = path.split('/')[2];
+      setSelectedQuestionId(id || null);
+      setCurrentView('question-detail');
+      return;
+    }
+
     if (path.startsWith('/courses/')) {
       const id = path.split('/')[2];
       setSelectedCourseId(id || null);
@@ -52,9 +63,10 @@ export default function App() {
     };
     setCurrentView(map[path] ?? 'landing');
     setSelectedCourseId(null);
+    setSelectedQuestionId(null);
   };
 
-  const pushPath = (view: View, courseId?: string | null) => {
+  const pushPath = (view: View, courseId?: string | null, questionId?: string | null) => {
     const path =
       view === 'landing'
         ? '/'
@@ -64,16 +76,18 @@ export default function App() {
             ? `/courses/${courseId}`
             : view === 'questions'
               ? '/questions'
-              : view === 'mentors'
-                ? '/mentors'
-                : view === 'dashboard'
-                  ? '/profile'
-                  : view === 'auth'
-                    ? '/auth'
-                    : view === 'design-system'
-                      ? '/design-system'
-                      : '/';
-    window.history.pushState({ view, courseId }, '', path);
+              : view === 'question-detail' && questionId
+                ? `/questions/${questionId}`
+                : view === 'mentors'
+                  ? '/mentors'
+                  : view === 'dashboard'
+                    ? '/profile'
+                    : view === 'auth'
+                      ? '/auth'
+                      : view === 'design-system'
+                        ? '/design-system'
+                        : '/';
+    window.history.pushState({ view, courseId, questionId }, '', path);
   };
 
   const loadProfile = async () => {
@@ -103,6 +117,13 @@ export default function App() {
     setSelectedCourseId(id);
     setCurrentView('course-detail');
     pushPath('course-detail', id);
+    window.scrollTo(0, 0);
+  };
+
+  const handleQuestionSelect = (id: string) => {
+    setSelectedQuestionId(id);
+    setCurrentView('question-detail');
+    pushPath('question-detail', null, id);
     window.scrollTo(0, 0);
   };
 
@@ -138,7 +159,18 @@ export default function App() {
         />
       )}
       
-      {currentView === 'questions' && <Questions />}
+      {currentView === 'questions' && <Questions onSelectQuestion={handleQuestionSelect} />}
+
+      {currentView === 'question-detail' && selectedQuestionId && (
+        <QuestionDetail
+          questionId={selectedQuestionId}
+          onBack={() => {
+            setCurrentView('questions');
+            pushPath('questions');
+          }}
+          onSelectQuestion={handleQuestionSelect}
+        />
+      )}
       
       {currentView === 'mentors' && <Mentors />}
       

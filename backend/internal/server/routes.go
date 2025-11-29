@@ -73,6 +73,7 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	authRequired.POST("/questions", wrapper.CreateQuestion)
 	authRequired.PATCH("/questions/:id", wrapper.UpdateQuestion)
 	authRequired.DELETE("/questions/:id", wrapper.DeleteQuestion)
+	authRequired.POST("/questions/:id/submit", wrapper.SubmitQuestionAnswer)
 
 	authRequired.POST("/courses", wrapper.CreateCourse)
 	authRequired.PATCH("/courses/:id", wrapper.UpdateCourse)

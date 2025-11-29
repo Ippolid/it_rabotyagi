@@ -184,6 +184,7 @@ func (r *StatisticsRepository) GetQuestionStatisticsByCourse(ctx context.Context
 		FROM user_question_progress uqp
 		JOIN courses c ON c.id = uqp.course_id
 		WHERE uqp.user_id = $1
+		  AND uqp.course_id IS NOT NULL
 		  AND ($2::int IS NULL OR uqp.course_id = $2)
 		GROUP BY uqp.course_id, c.title
 		ORDER BY uqp.course_id`
@@ -216,4 +217,77 @@ func (r *StatisticsRepository) GetQuestionStatisticsByCourse(ctx context.Context
 	}
 
 	return result, nil
+}
+// RecordQuestionAttempt сохраняет попытку ответа на вопрос
+func (r *StatisticsRepository) RecordQuestionAttempt(ctx context.Context, userID, questionID int, isCorrect bool, timeSpent time.Duration) error {
+	// Проверяем, была ли уже попытка для этого вопроса
+	var exists bool
+	checkQuery := `SELECT EXISTS(SELECT 1 FROM user_question_progress WHERE user_id = $1 AND question_id = $2)`
+	err := r.db.Pool.QueryRow(ctx, checkQuery, userID, questionID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		// Обновляем существующую запись
+		query := `
+			UPDATE user_question_progress
+			SET attempts = attempts + 1,
+			    is_correct = $3,
+			    time_spent = $4,
+			    updated_at = NOW()
+			WHERE user_id = $1 AND question_id = $2`
+		_, err = r.db.Pool.Exec(ctx, query, userID, questionID, isCorrect, timeSpent)
+	} else {
+		// Создаем новую запись (без course_id для вопросов вне курсов)
+		query := `
+			INSERT INTO user_question_progress (user_id, question_id, is_correct, attempts, time_spent)
+			VALUES ($1, $2, $3, 1, $4)`
+		_, err = r.db.Pool.Exec(ctx, query, userID, questionID, isCorrect, timeSpent)
+	}
+
+	return err
+}
+
+// CheckIfQuestionSolved проверяет, решал ли пользователь этот вопрос
+func (r *StatisticsRepository) CheckIfQuestionSolved(ctx context.Context, userID, questionID int) (bool, bool, error) {
+	query := `SELECT is_correct, attempts > 0 FROM user_question_progress WHERE user_id = $1 AND question_id = $2`
+
+	var isCorrect bool
+	var exists bool
+	err := r.db.Pool.QueryRow(ctx, query, userID, questionID).Scan(&isCorrect, &exists)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return false, false, nil
+		}
+		return false, false, err
+	}
+
+	return isCorrect, exists, nil
+}
+
+// GetSolvedQuestionIDs возвращает список ID решенных вопросов для пользователя
+func (r *StatisticsRepository) GetSolvedQuestionIDs(ctx context.Context, userID int) (map[int]bool, error) {
+	query := `SELECT DISTINCT question_id FROM user_question_progress WHERE user_id = $1`
+
+	rows, err := r.db.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	solvedMap := make(map[int]bool)
+	for rows.Next() {
+		var questionID int
+		if err := rows.Scan(&questionID); err != nil {
+			return nil, err
+		}
+		solvedMap[questionID] = true
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return solvedMap, nil
 }

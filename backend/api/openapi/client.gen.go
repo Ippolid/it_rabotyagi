@@ -176,6 +176,11 @@ type ClientInterface interface {
 
 	UpdateQuestion(ctx context.Context, id int, body UpdateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SubmitQuestionAnswerWithBody request with any body
+	SubmitQuestionAnswerWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SubmitQuestionAnswer(ctx context.Context, id int, body SubmitQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetCurrentUser request
 	GetCurrentUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -578,6 +583,30 @@ func (c *Client) UpdateQuestionWithBody(ctx context.Context, id int, contentType
 
 func (c *Client) UpdateQuestion(ctx context.Context, id int, body UpdateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateQuestionRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SubmitQuestionAnswerWithBody(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitQuestionAnswerRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SubmitQuestionAnswer(ctx context.Context, id int, body SubmitQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitQuestionAnswerRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1773,6 +1802,53 @@ func NewUpdateQuestionRequestWithBody(server string, id int, contentType string,
 	return req, nil
 }
 
+// NewSubmitQuestionAnswerRequest calls the generic SubmitQuestionAnswer builder with application/json body
+func NewSubmitQuestionAnswerRequest(server string, id int, body SubmitQuestionAnswerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSubmitQuestionAnswerRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSubmitQuestionAnswerRequestWithBody generates requests for SubmitQuestionAnswer with any type of body
+func NewSubmitQuestionAnswerRequestWithBody(server string, id int, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/questions/%s/submit", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetCurrentUserRequest generates requests for GetCurrentUser
 func NewGetCurrentUserRequest(server string) (*http.Request, error) {
 	var err error
@@ -2152,6 +2228,11 @@ type ClientWithResponsesInterface interface {
 	UpdateQuestionWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateQuestionResponse, error)
 
 	UpdateQuestionWithResponse(ctx context.Context, id int, body UpdateQuestionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateQuestionResponse, error)
+
+	// SubmitQuestionAnswerWithBodyWithResponse request with any body
+	SubmitQuestionAnswerWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitQuestionAnswerResponse, error)
+
+	SubmitQuestionAnswerWithResponse(ctx context.Context, id int, body SubmitQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitQuestionAnswerResponse, error)
 
 	// GetCurrentUserWithResponse request
 	GetCurrentUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetCurrentUserResponse, error)
@@ -2724,6 +2805,31 @@ func (r UpdateQuestionResponse) StatusCode() int {
 	return 0
 }
 
+type SubmitQuestionAnswerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *QuestionSubmitResponse
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON404      *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r SubmitQuestionAnswerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SubmitQuestionAnswerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetCurrentUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3168,6 +3274,23 @@ func (c *ClientWithResponses) UpdateQuestionWithResponse(ctx context.Context, id
 		return nil, err
 	}
 	return ParseUpdateQuestionResponse(rsp)
+}
+
+// SubmitQuestionAnswerWithBodyWithResponse request with arbitrary body returning *SubmitQuestionAnswerResponse
+func (c *ClientWithResponses) SubmitQuestionAnswerWithBodyWithResponse(ctx context.Context, id int, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SubmitQuestionAnswerResponse, error) {
+	rsp, err := c.SubmitQuestionAnswerWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSubmitQuestionAnswerResponse(rsp)
+}
+
+func (c *ClientWithResponses) SubmitQuestionAnswerWithResponse(ctx context.Context, id int, body SubmitQuestionAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*SubmitQuestionAnswerResponse, error) {
+	rsp, err := c.SubmitQuestionAnswer(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSubmitQuestionAnswerResponse(rsp)
 }
 
 // GetCurrentUserWithResponse request returning *GetCurrentUserResponse
@@ -4083,6 +4206,53 @@ func ParseUpdateQuestionResponse(rsp *http.Response) (*UpdateQuestionResponse, e
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest QuestionDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSubmitQuestionAnswerResponse parses an HTTP response from a SubmitQuestionAnswerWithResponse call
+func ParseSubmitQuestionAnswerResponse(rsp *http.Response) (*SubmitQuestionAnswerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SubmitQuestionAnswerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest QuestionSubmitResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
