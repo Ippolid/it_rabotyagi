@@ -20,9 +20,11 @@ func NewQuestionRepository(db *pgxpool.Pool) *QuestionRepository {
 
 // QuestionListItem представляет краткую информацию о вопросе
 type QuestionListItem struct {
-	ID         int    `json:"id"`
-	Title      string `json:"title"`
-	Technology string `json:"technology"`
+	ID          int      `json:"id"`
+	Title       string   `json:"title"`
+	Technology  string   `json:"technology"`
+	Difficulty  string   `json:"difficulty"`
+	CompanyTags []string `json:"company_tags"`
 }
 
 // QuestionDetail представляет полную информацию о вопросе
@@ -38,14 +40,22 @@ type QuestionDetail struct {
 	Explanation   *string  `json:"explanation"`
 }
 
+// QuestionFilters представляет параметры фильтрации вопросов
+type QuestionFilters struct {
+	Search     *string
+	Technology *string
+	Difficulty *string
+	Company    *string
+}
+
 // GetAllQuestions получает список всех вопросов с их технологиями
-func (r *QuestionRepository) GetAllQuestions(ctx context.Context, technology *string, limit, offset int) ([]QuestionListItem, int, error) {
+func (r *QuestionRepository) GetAllQuestions(ctx context.Context, filters QuestionFilters, limit, offset int) ([]QuestionListItem, int, error) {
 	var questions []QuestionListItem
 	var total int
 
 	// Базовый запрос с JOIN для получения технологии
 	baseQuery := `
-		SELECT q.id, q.title, t.name as technology
+		SELECT DISTINCT q.id, q.title, t.name as technology, q.difficulty, q.company_tag
 		FROM questions q
 		JOIN question_technologies qt ON q.id = qt.question_id
 		JOIN technologies t ON qt.technology_id = t.id
@@ -58,71 +68,79 @@ func (r *QuestionRepository) GetAllQuestions(ctx context.Context, technology *st
 		JOIN technologies t ON qt.technology_id = t.id
 	`
 
-	// Добавляем фильтр по технологии, если указан
-	if technology != nil && *technology != "" {
-		baseQuery += " WHERE t.name = $1"
-		countQuery += " WHERE t.name = $1"
+	// Собираем условия WHERE
+	var whereClauses []string
+	var args []interface{}
+	argIndex := 1
+
+	// Фильтр по поиску (по title и content)
+	if filters.Search != nil && *filters.Search != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("(q.title ILIKE $%d OR q.content ILIKE $%d)", argIndex, argIndex))
+		args = append(args, "%"+*filters.Search+"%")
+		argIndex++
+	}
+
+	// Фильтр по технологии
+	if filters.Technology != nil && *filters.Technology != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("t.name = $%d", argIndex))
+		args = append(args, *filters.Technology)
+		argIndex++
+	}
+
+	// Фильтр по сложности
+	if filters.Difficulty != nil && *filters.Difficulty != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("q.difficulty = $%d", argIndex))
+		args = append(args, *filters.Difficulty)
+		argIndex++
+	}
+
+	// Фильтр по компании
+	if filters.Company != nil && *filters.Company != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("$%d = ANY(q.company_tag)", argIndex))
+		args = append(args, *filters.Company)
+		argIndex++
+	}
+
+	// Добавляем WHERE к запросам
+	if len(whereClauses) > 0 {
+		whereClause := " WHERE " + strings.Join(whereClauses, " AND ")
+		baseQuery += whereClause
+		countQuery += whereClause
+	}
+
+	// Получаем общее количество
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	// Добавляем сортировку и пагинацию
 	baseQuery += " ORDER BY q.id"
 
 	if limit > 0 {
-		if technology != nil && *technology != "" {
-			baseQuery += " LIMIT $2 OFFSET $3"
-		} else {
-			baseQuery += " LIMIT $1 OFFSET $2"
-		}
-	}
-
-	// Получаем общее количество
-	if technology != nil && *technology != "" {
-		err := r.db.QueryRow(ctx, countQuery, *technology).Scan(&total)
-		if err != nil {
-			return nil, 0, err
-		}
-	} else {
-		err := r.db.QueryRow(ctx, countQuery).Scan(&total)
-		if err != nil {
-			return nil, 0, err
-		}
+		baseQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, limit, offset)
 	}
 
 	// Получаем вопросы
-	var rows interface{ Close() }
-	var err error
-
-	if technology != nil && *technology != "" {
-		if limit > 0 {
-			rows, err = r.db.Query(ctx, baseQuery, *technology, limit, offset)
-		} else {
-			rows, err = r.db.Query(ctx, baseQuery, *technology)
-		}
-	} else {
-		if limit > 0 {
-			rows, err = r.db.Query(ctx, baseQuery, limit, offset)
-		} else {
-			rows, err = r.db.Query(ctx, baseQuery)
-		}
-	}
-
+	rows, err := r.db.Query(ctx, baseQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer rows.Close()
 
-	pgxRows := rows.(interface {
-		Next() bool
-		Scan(...interface{}) error
-		Close()
-	})
-
-	for pgxRows.Next() {
+	for rows.Next() {
 		var q QuestionListItem
-		if err := pgxRows.Scan(&q.ID, &q.Title, &q.Technology); err != nil {
+		var companyTags []string
+		if err := rows.Scan(&q.ID, &q.Title, &q.Technology, &q.Difficulty, &companyTags); err != nil {
 			return nil, 0, err
 		}
+		q.CompanyTags = companyTags
 		questions = append(questions, q)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
 	}
 
 	return questions, total, nil
