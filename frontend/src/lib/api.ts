@@ -12,6 +12,57 @@ export type UserProfile = {
   email: string;
   fullName: string;
   role?: string;
+  avatarUrl?: string;
+  description?: string;
+};
+
+// Statistics types
+export type QuestionStatisticsSummary = {
+  totalSolved: number;
+  correctAnswersPct: number;
+  totalAttempts: number;
+  avgTimeSpent: number;
+};
+
+export type UserStatistics = {
+  coursesEnrolled: number;
+  coursesCompleted: number;
+  overallProgressPct: number;
+  questionsStatistics: QuestionStatisticsSummary;
+};
+
+export type CourseStatisticsItem = {
+  courseId: number;
+  courseTitle: string;
+  totalModules: number;
+  completedModules: number;
+  progressPct: number;
+  startedAt: string;
+  timeSpent: number;
+};
+
+export type QuestionStatisticsByCourse = {
+  courseId: number;
+  courseTitle: string;
+  statistics: QuestionStatisticsSummary;
+};
+
+export type UserQuestionStatistics = {
+  overall: QuestionStatisticsSummary;
+  byCourse: QuestionStatisticsByCourse[];
+};
+
+// Profile update types
+export type UserProfileUpdate = {
+  username?: string;
+  name?: string;
+  email?: string;
+  description?: string;
+};
+
+export type UserProfileUpdateResponse = {
+  profile: UserProfile;
+  tokens?: AuthTokens;
 };
 
 type RequestOptions = RequestInit & {
@@ -110,4 +161,43 @@ export function listMentors() {
 
 export function listQuestions() {
   return request<{ items: any[]; total?: number }>('/questions');
+}
+
+// Statistics API
+export function getUserStatistics() {
+  return request<UserStatistics>('/users/me/statistics', { auth: true });
+}
+
+export function getCourseStatistics() {
+  return request<{ items: CourseStatisticsItem[] }>('/users/me/statistics/courses', { auth: true });
+}
+
+export function getQuestionStatistics(courseId?: number) {
+  const query = courseId ? `?courseId=${courseId}` : '';
+  return request<UserQuestionStatistics>(`/users/me/statistics/questions${query}`, { auth: true });
+}
+
+// Profile management API
+export function updateProfile(data: UserProfileUpdate) {
+  return request<UserProfileUpdateResponse>('/users/me/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+    auth: true,
+  });
+}
+
+export function updateAvatar(avatarUrl: string) {
+  return request<{ avatarUrl: string }>('/users/me/avatar', {
+    method: 'PATCH',
+    body: JSON.stringify({ avatarUrl }),
+    auth: true,
+  });
+}
+
+export function changePassword(oldPassword: string, newPassword: string) {
+  return request<{ message: string }>('/users/me/password', {
+    method: 'POST',
+    body: JSON.stringify({ oldPassword, newPassword }),
+    auth: true,
+  });
 }

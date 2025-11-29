@@ -18,6 +18,7 @@ export default function App() {
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     const tokens = getStoredTokens();
@@ -44,7 +45,8 @@ export default function App() {
       '/courses': 'courses',
       '/questions': 'questions',
       '/mentors': 'mentors',
-      '/dashboard': 'dashboard',
+      '/profile': 'dashboard',
+      '/dashboard': 'dashboard', // Keep for backwards compatibility
       '/auth': 'auth',
       '/design-system': 'design-system',
     };
@@ -65,7 +67,7 @@ export default function App() {
               : view === 'mentors'
                 ? '/mentors'
                 : view === 'dashboard'
-                  ? '/dashboard'
+                  ? '/profile'
                   : view === 'auth'
                     ? '/auth'
                     : view === 'design-system'
@@ -77,7 +79,9 @@ export default function App() {
   const loadProfile = async () => {
     try {
       const profile = await getProfile();
+      // Приоритет: fullName > email, убираем никнейм из отображения
       setUserName(profile.fullName || profile.email);
+      setUserAvatar(profile.avatarUrl || null);
     } catch {
       // ignore errors, stay in guest mode
     }
@@ -114,12 +118,13 @@ export default function App() {
     clearTokens();
     setIsAuthenticated(false);
     setUserName(null);
+    setUserAvatar(null);
     setCurrentView('landing');
     pushPath('landing');
   };
 
   return (
-    <Layout currentView={currentView} onNavigate={handleNavigate} userName={userName} onLogout={handleLogout}>
+    <Layout currentView={currentView} onNavigate={handleNavigate} userName={userName} userAvatar={userAvatar} onLogout={handleLogout}>
       {currentView === 'landing' && <Landing onNavigate={handleNavigate} />}
       
       {currentView === 'courses' && (

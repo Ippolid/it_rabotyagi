@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Button } from '../ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Menu, X, BookOpen, Users, MessageCircle, LayoutDashboard, Component } from 'lucide-react';
 
 type View = 'landing' | 'courses' | 'course-detail' | 'questions' | 'mentors' | 'dashboard' | 'auth' | 'design-system';
@@ -10,18 +11,17 @@ interface LayoutProps {
   currentView: View;
   onNavigate: (view: View) => void;
   userName?: string | null;
+  userAvatar?: string | null;
   onLogout?: () => void;
 }
 
-export function Layout({ children, currentView, onNavigate, userName, onLogout }: LayoutProps) {
+export function Layout({ children, currentView, onNavigate, userName, userAvatar, onLogout }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const navItems = [
     { label: 'Курсы', value: 'courses', icon: BookOpen },
     { label: 'Менторы', value: 'mentors', icon: Users },
     { label: 'Вопросы', value: 'questions', icon: MessageCircle },
-    { label: 'Дашборд', value: 'dashboard', icon: LayoutDashboard },
-    { label: 'Дизайн-система', value: 'design-system', icon: Component },
   ];
 
   return (
@@ -70,9 +70,18 @@ export function Layout({ children, currentView, onNavigate, userName, onLogout }
               </>
             ) : (
               <>
-                <Button variant="ghost" onClick={() => onNavigate('dashboard')}>
-                  {userName}
-                </Button>
+                <button
+                  onClick={() => onNavigate('dashboard')}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={userAvatar || undefined} />
+                    <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                      {userName.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium text-gray-700">{userName}</span>
+                </button>
                 <Button variant="outline" onClick={onLogout}>
                   Выйти
                 </Button>
@@ -120,9 +129,18 @@ export function Layout({ children, currentView, onNavigate, userName, onLogout }
                   </>
                 ) : (
                   <>
-                    <Button className="w-full" onClick={() => { onNavigate('dashboard'); setIsMobileMenuOpen(false); }}>
-                      {userName}
-                    </Button>
+                    <button
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 transition-colors"
+                      onClick={() => { onNavigate('dashboard'); setIsMobileMenuOpen(false); }}
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={userAvatar || undefined} />
+                        <AvatarFallback className="bg-blue-100 text-blue-700">
+                          {userName.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-gray-900">{userName}</span>
+                    </button>
                     <Button variant="outline" className="w-full" onClick={() => { onLogout?.(); setIsMobileMenuOpen(false); }}>
                       Выйти
                     </Button>

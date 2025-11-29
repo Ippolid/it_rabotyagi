@@ -871,6 +871,14 @@ components:
         role:
           type: string
           description: Роль пользователя в системе
+        avatarUrl:
+          type: string
+          nullable: true
+          description: URL аватара пользователя
+        description:
+          type: string
+          nullable: true
+          description: Описание профиля пользователя
     MentorCard:
       type: object
       required: [id, fullName, title, skills]
