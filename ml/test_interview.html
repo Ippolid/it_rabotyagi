@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Trainer - Тестер</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .question-box {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .question-box h2 {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .question-text {
+            color: #333;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .recording {
+            background: #f56565;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .status-info {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+        
+        .status-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status-error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .results {
+            margin-top: 30px;
+        }
+        
+        .result-section {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .result-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .score {
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .transcript {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 15px;
+        }
+        
+        .feedback-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feedback-list li {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Interview Trainer</h1>
+        <p class="subtitle">Тренажер для подготовки к собеседованиям по ML</p>
+        
+        <div id="status" class="status status-info" style="display:none;"></div>
+        
+        <div class="question-box">
+            <h2>Вопрос:</h2>
+            <div id="question" class="question-text">Нажмите "Получить вопрос" чтобы начать</div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn-primary" onclick="getRandomQuestion()">🎲 Получить вопрос</button>
+            <button id="recordBtn" class="btn-success" onclick="toggleRecording()" disabled>🎙️ Начать запись</button>
+            <button id="submitBtn" class="btn-primary" onclick="submitAnswer()" disabled>📤 Отправить ответ</button>
+        </div>
+        
+        <div id="results" class="results" style="display:none;">
+            <div class="result-section">
+                <h3>📝 Ваш ответ:</h3>
+                <div id="transcript" class="transcript"></div>
+            </div>
+            
+            <div class="result-section">
+                <h3>⭐ Оценка:</h3>
+                <div id="score" class="score"></div>
+            </div>
+            
+            <div class="result-section">
+                <h3>✅ Что сказали правильно:</h3>
+                <ul id="strengths" class="feedback-list"></ul>
+            </div>
+            
+            <div class="result-section">
+                <h3>💡 Что можно улучшить:</h3>
+                <ul id="improvements" class="feedback-list"></ul>
+            </div>
+            
+            <div class="result-section">
+                <h3>💬 Общий комментарий:</h3>
+                <p id="comment" style="line-height: 1.6;"></p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:8001';
+        let currentQuestion = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let audioBlob = null;
+        
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status status-${type}`;
+            statusEl.style.display = 'block';
+        }
+        
+        function hideStatus() {
+            document.getElementById('status').style.display = 'none';
+        }
+        
+        async function getRandomQuestion() {
+            try {
+                showStatus('Загружаем случайный вопрос...', 'info');
+                
+                const response = await fetch(`${API_URL}/api/v1/questions/random`);
+                if (!response.ok) throw new Error('Ошибка загрузки вопроса');
+                
+                currentQuestion = await response.json();
+                document.getElementById('question').textContent = currentQuestion.question;
+                document.getElementById('recordBtn').disabled = false;
+                document.getElementById('results').style.display = 'none';
+                
+                showStatus('Вопрос загружен! Можете начинать запись.', 'success');
+                setTimeout(hideStatus, 3000);
+            } catch (error) {
+                showStatus(`Ошибка: ${error.message}`, 'error');
+            }
+        }
+        
+        async function toggleRecording() {
+            const recordBtn = document.getElementById('recordBtn');
+            
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                    };
+                    
+                    mediaRecorder.onstop = () => {
+                        audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        document.getElementById('submitBtn').disabled = false;
+                        showStatus('Запись остановлена. Можете отправить ответ.', 'success');
+                    };
+                    
+                    mediaRecorder.start();
+                    recordBtn.textContent = '⏹️ Остановить запись';
+                    recordBtn.classList.remove('btn-success');
+                    recordBtn.classList.add('btn-danger', 'recording');
+                    showStatus('Идет запись... Говорите свой ответ', 'info');
+                } catch (error) {
+                    showStatus(`Ошибка доступа к микрофону: ${error.message}`, 'error');
+                }
+            } else {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                recordBtn.textContent = '🎙️ Начать запись';
+                recordBtn.classList.remove('btn-danger', 'recording');
+                recordBtn.classList.add('btn-success');
+            }
+        }
+        
+        async function submitAnswer() {
+            if (!audioBlob || !currentQuestion) {
+                showStatus('Нет записанного аудио или вопроса', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Обрабатываем ваш ответ... Это может занять несколько секунд', 'info');
+                document.getElementById('submitBtn').disabled = true;
+                
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'answer.webm');
+                formData.append('question_id', currentQuestion.id);
+                formData.append('language', 'ru');
+                
+                const response = await fetch(`${API_URL}/api/v1/interview/complete`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error('Ошибка обработки ответа');
+                
+                const result = await response.json();
+                displayResults(result);
+                
+                showStatus('Результаты готовы!', 'success');
+                setTimeout(hideStatus, 3000);
+            } catch (error) {
+                showStatus(`Ошибка: ${error.message}`, 'error');
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+        
+        function displayResults(result) {
+            document.getElementById('transcript').textContent = result.transcription.text;
+            document.getElementById('score').textContent = `${result.evaluation.score}/100`;
+            
+            const strengthsList = document.getElementById('strengths');
+            strengthsList.innerHTML = '';
+            result.evaluation.strengths.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                strengthsList.appendChild(li);
+            });
+            
+            const improvementsList = document.getElementById('improvements');
+            improvementsList.innerHTML = '';
+            result.evaluation.improvements.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                improvementsList.appendChild(li);
+            });
+            
+            document.getElementById('comment').textContent = result.evaluation.overall_comment;
+            document.getElementById('results').style.display = 'block';
+            
+            // Reset for next question
+            audioBlob = null;
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('recordBtn').textContent = '🎙️ Начать запись';
+            document.getElementById('recordBtn').classList.remove('btn-danger', 'recording');
+            document.getElementById('recordBtn').classList.add('btn-success');
+        }
+    </script>
+</body>
+</html>

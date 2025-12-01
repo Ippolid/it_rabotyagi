@@ -230,3 +230,90 @@ export function changePassword(oldPassword: string, newPassword: string) {
     auth: true,
   });
 }
+
+// ===== ML Service API =====
+// В продакшене используем nginx proxy, в разработке - прямой доступ
+const ML_API_BASE = import.meta.env.DEV 
+  ? 'http://localhost:8001/api/v1' 
+  : '/ml-api';
+
+export type MLQuestion = {
+  id: number;
+  question: string;
+  ideal_answer: string;
+};
+
+export type TranscriptionResponse = {
+  text: string;
+  language?: string;
+  duration?: number;
+};
+
+export type EvaluationResponse = {
+  score: number;
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+  overall_comment: string;
+};
+
+export type CompleteInterviewResponse = {
+  question_id?: number;
+  question: string;
+  transcription: TranscriptionResponse;
+  evaluation: EvaluationResponse;
+};
+
+async function mlRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${ML_API_BASE}${path}`, options);
+
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const data = await res.json() as { detail?: string };
+      if (data?.detail) message = data.detail;
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(message);
+  }
+
+  return await res.json() as T;
+}
+
+export function getRandomMLQuestion() {
+  return mlRequest<MLQuestion>('/questions/random');
+}
+
+export function getMLQuestionById(id: number) {
+  return mlRequest<MLQuestion>(`/questions/${id}`);
+}
+
+export function getAllMLQuestions() {
+  return mlRequest<MLQuestion[]>('/questions');
+}
+
+export async function completeInterview(
+  audioBlob: Blob,
+  questionId?: number,
+  question?: string,
+  idealAnswer?: string,
+  language: string = 'ru'
+): Promise<CompleteInterviewResponse> {
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'answer.webm');
+  
+  if (questionId !== undefined) {
+    formData.append('question_id', String(questionId));
+  } else if (question && idealAnswer) {
+    formData.append('question', question);
+    formData.append('ideal_answer', idealAnswer);
+  }
+  
+  formData.append('language', language);
+
+  return mlRequest<CompleteInterviewResponse>('/interview/complete', {
+    method: 'POST',
+    body: formData,
+  });
+}

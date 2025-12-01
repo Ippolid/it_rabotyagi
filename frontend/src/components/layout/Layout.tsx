@@ -2,9 +2,9 @@
 import React from 'react';
 import { Button } from '../ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Menu, X, BookOpen, Users, MessageCircle, LayoutDashboard, Component } from 'lucide-react';
+import { Menu, X, BookOpen, Users, MessageCircle, LayoutDashboard, Component, Mic } from 'lucide-react';
 
-type View = 'landing' | 'courses' | 'course-detail' | 'questions' | 'mentors' | 'dashboard' | 'auth' | 'design-system';
+type View = 'landing' | 'courses' | 'course-detail' | 'questions' | 'mentors' | 'dashboard' | 'auth' | 'design-system' | 'interview-trainer';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -22,6 +22,7 @@ export function Layout({ children, currentView, onNavigate, userName, userAvatar
     { label: 'Курсы', value: 'courses', icon: BookOpen },
     { label: 'Менторы', value: 'mentors', icon: Users },
     { label: 'Вопросы', value: 'questions', icon: MessageCircle },
+    { label: 'Тренажер', value: 'interview-trainer', icon: Mic },
   ];
 
   return (

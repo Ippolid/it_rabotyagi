@@ -77,6 +77,26 @@ services:
         condition: service_started
     networks:
       - it_rabotyagi-network
+
+  # 5. ML Service для тренировки собеседований
+  ml-service:
+    build:
+      context: ../../ml
+      dockerfile: Dockerfile
+    container_name: it_rabotyagi_ml_service
+    restart: always
+    ports:
+      - "${ML_SERVICE_PORT:-8001}:8001"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    networks:
+      - it_rabotyagi-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 #
 #  # 4. Nginx - веб-сервер для статики и reverse proxy
 #  nginx:
