@@ -10,9 +10,10 @@ import { Mentors } from './components/pages/Mentors';
 import { Auth } from './components/pages/Auth';
 import { Dashboard } from './components/pages/Dashboard';
 import { DesignSystem } from './components/pages/DesignSystem';
+import { InterviewTrainer } from './components/pages/InterviewTrainer';
 import { clearTokens, getProfile, getStoredTokens } from './lib/api';
 
-type View = 'landing' | 'courses' | 'course-detail' | 'questions' | 'question-detail' | 'mentors' | 'dashboard' | 'auth' | 'design-system';
+type View = 'landing' | 'courses' | 'course-detail' | 'questions' | 'question-detail' | 'mentors' | 'dashboard' | 'auth' | 'design-system' | 'interview-trainer';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('landing');
@@ -60,6 +61,7 @@ export default function App() {
       '/dashboard': 'dashboard', // Keep for backwards compatibility
       '/auth': 'auth',
       '/design-system': 'design-system',
+      '/interview-trainer': 'interview-trainer',
     };
     setCurrentView(map[path] ?? 'landing');
     setSelectedCourseId(null);
@@ -86,7 +88,9 @@ export default function App() {
                       ? '/auth'
                       : view === 'design-system'
                         ? '/design-system'
-                        : '/';
+                        : view === 'interview-trainer'
+                          ? '/interview-trainer'
+                          : '/';
     window.history.pushState({ view, courseId, questionId }, '', path);
   };
 
@@ -179,6 +183,8 @@ export default function App() {
       {currentView === 'dashboard' && <Dashboard onNavigate={handleNavigate} userName={userName} />}
       
       {currentView === 'design-system' && <DesignSystem />}
+      
+      {currentView === 'interview-trainer' && <InterviewTrainer />}
     </Layout>
   );
 }

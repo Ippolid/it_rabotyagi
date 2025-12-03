@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
-import { ArrowRight, Code, Users, Terminal, Star, TrendingUp } from 'lucide-react';
+import { ArrowRight, Code, Users, Terminal, Star, TrendingUp, Mic } from 'lucide-react';
 import { motion } from 'motion/react';
 import { courses as fallbackCourses, mentors as fallbackMentors } from '../../lib/data';
 import { Badge } from '../ui/badge';
@@ -242,17 +242,20 @@ export function Landing({ onNavigate }: { onNavigate: (view: any) => void }) {
                {
                   title: "Интерактивные лаборатории",
                   desc: "Без настройки окружения: код прямо в браузере через облачный IDE.",
-                  icon: Terminal
+                  icon: Terminal,
+                  action: null
                },
                {
                   title: "Код-ревью",
                   desc: "Получайте разборы от сеньоров по вашим проектам и кейсам.",
-                  icon: Star
+                  icon: Star,
+                  action: null
                },
                {
-                  title: "Пробные интервью",
-                  desc: "Практикуйте system design и алгоритмы в формате реальных собесов.",
-                  icon: Users
+                  title: "Тренажер собеседований",
+                  desc: "Практикуйтесь устно отвечать на вопросы и получайте AI-фидбек в реальном времени.",
+                  icon: Mic,
+                  action: 'interview-trainer'
                }
             ].map((feature, i) => (
                <motion.div
@@ -261,13 +264,21 @@ export function Landing({ onNavigate }: { onNavigate: (view: any) => void }) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className="p-8 rounded-3xl bg-white border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-gray-200/50 transition-all duration-500 group"
+                  className={`p-8 rounded-3xl bg-white border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-gray-200/50 transition-all duration-500 group ${feature.action ? 'cursor-pointer' : ''}`}
+                  onClick={feature.action ? () => onNavigate(feature.action) : undefined}
                >
                   <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-gray-900 group-hover:text-white transition-all duration-300">
                      <feature.icon size={24} />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
                   <p className="text-gray-500 leading-relaxed">{feature.desc}</p>
+                  {feature.action && (
+                    <div className="mt-4">
+                      <span className="text-sm font-medium text-blue-600 group-hover:underline inline-flex items-center gap-1">
+                        Попробовать <ArrowRight className="w-4 h-4" />
+                      </span>
+                    </div>
+                  )}
                </motion.div>
             ))}
          </div>
