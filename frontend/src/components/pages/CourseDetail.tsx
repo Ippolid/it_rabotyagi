@@ -6,16 +6,31 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Card, CardContent } from '../ui/card';
 import { CheckCircle, PlayCircle, Lock, Clock, Calendar, User } from 'lucide-react';
-import { getCourseById, getCourseModules } from '../../lib/api';
+import { getCourseById, getCourseModules, enrollInCourse, getCourseProgress } from '../../lib/api';
 
-export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: () => void }) {
+export function CourseDetail({
+  courseId,
+  onBack,
+  onNavigateToModule
+}: {
+  courseId: string;
+  onBack: () => void;
+  onNavigateToModule?: (courseId: string, moduleId: string) => void;
+}) {
   const fallback = courses.find(c => c.id === courseId) || courses[0];
   const [course, setCourse] = useState<Course | null>(fallback || null);
   const [modules, setModules] = useState<
-    { id: string; title: string; duration?: string; status: 'completed' | 'in-progress' | 'locked' }[]
+    { id: string; title: string; duration?: string; status: 'completed' | 'in-progress' | 'locked'; order: number }[]
   >([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+  const [progress, setProgress] = useState<{ completed: number; total: number; percentage: number }>({
+    completed: 0,
+    total: 0,
+    percentage: 0
+  });
 
   const difficultyLabel: Record<string, string> = {
     Beginner: 'Начальный',
@@ -23,6 +38,23 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
     Advanced: 'Продвинутый',
   };
   
+  const loadProgress = async () => {
+    try {
+      const progressData = await getCourseProgress(courseId);
+      setEnrolled(true);
+      setProgress({
+        completed: progressData.completedModules,
+        total: progressData.totalModules,
+        percentage: progressData.percentage || 0
+      });
+      return progressData;
+    } catch (err) {
+      // Not enrolled or error
+      setEnrolled(false);
+      return null;
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -48,23 +80,51 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
         }
       }
 
+      // Load modules
       try {
         const mods = await getCourseModules(courseId);
         if (cancelled) return;
-        const mapped = mods.items.map((m, idx) => ({
-          id: String(m.id ?? idx),
-          title: m.title,
-          duration: m.description || '—',
-          status: idx === 0 ? 'completed' : idx === 1 ? 'in-progress' : 'locked',
-        }));
+
+        // Load progress to determine module statuses
+        const progressData = await loadProgress();
+
+        const completedModulesSet = new Set(
+          progressData?.modules?.filter(m => m.completed).map(m => m.moduleId) || []
+        );
+
+        const mapped = mods.items.map((m, idx) => {
+          const moduleId = m.id ?? idx;
+          const order = m.order ?? idx + 1;
+          const isCompleted = completedModulesSet.has(moduleId);
+
+          // Sequential lock logic: module is unlocked if it's first OR previous is completed
+          const prevModule = idx > 0 ? mods.items[idx - 1] : null;
+          const prevCompleted = !prevModule || completedModulesSet.has(prevModule.id);
+
+          // User is enrolled if progressData is not null
+          const isEnrolled = progressData !== null;
+
+          let status: 'completed' | 'in-progress' | 'locked';
+          if (isCompleted) {
+            status = 'completed';
+          } else if (prevCompleted && isEnrolled) {
+            status = 'in-progress';
+          } else {
+            status = 'locked';
+          }
+
+          return {
+            id: String(moduleId),
+            title: m.title,
+            duration: m.description || '—',
+            status,
+            order
+          };
+        });
         setModules(mapped);
       } catch {
         if (!cancelled) {
-          setModules([
-            { id: 'm1', title: 'Введение и настройка', duration: '45 мин', status: 'completed' },
-            { id: 'm2', title: 'Глубокие базовые концепты', duration: '1 ч 20 мин', status: 'in-progress' },
-            { id: 'm3', title: 'Паттерны архитектуры', duration: '55 мин', status: 'locked' },
-          ]);
+          setModules([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -75,6 +135,35 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
       cancelled = true;
     };
   }, [courseId, fallback]);
+
+  const handleEnroll = async () => {
+    setEnrolling(true);
+    try {
+      await enrollInCourse(courseId);
+      setEnrolled(true);
+      // Reload to update module statuses
+      window.location.reload();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось записаться на курс';
+      alert(message);
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const handleModuleClick = (module: typeof modules[0]) => {
+    if (!enrolled) {
+      alert('Сначала запишитесь на курс');
+      return;
+    }
+    if (module.status === 'locked') {
+      alert('Завершите предыдущий модуль, чтобы разблокировать этот');
+      return;
+    }
+    if (onNavigateToModule) {
+      onNavigateToModule(courseId, module.id);
+    }
+  };
 
   if (!course) return <div>Курс не найден</div>;
 
@@ -106,19 +195,20 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
             <h3 className="text-2xl font-bold text-gray-900">Программа</h3>
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
               {modules.map((module, index) => (
-                <div 
-                  key={module.id} 
-                  className={`p-4 flex items-center justify-between border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors ${
-                    module.status === 'locked' ? 'opacity-60' : ''
+                <div
+                  key={module.id}
+                  onClick={() => handleModuleClick(module)}
+                  className={`p-4 flex items-center justify-between border-b border-gray-100 last:border-0 transition-colors ${
+                    module.status === 'locked' ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'
                   }`}
                 >
                  <div className="flex items-center gap-4">
                    <div className={`
                       w-8 h-8 rounded-full flex items-center justify-center
-                      ${module.status === 'completed' ? 'bg-green-100 text-green-600' : 
+                      ${module.status === 'completed' ? 'bg-green-100 text-green-600' :
                         module.status === 'in-progress' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}
                     `}>
-                      {module.status === 'completed' ? <CheckCircle size={18} /> : 
+                      {module.status === 'completed' ? <CheckCircle size={18} /> :
                        module.status === 'in-progress' ? <PlayCircle size={18} /> : <Lock size={18} />}
                     </div>
                     <div>
@@ -127,8 +217,8 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
                     </div>
                   </div>
                   <div>
-                    {module.status === 'in-progress' && <Button size="sm" variant="secondary">Продолжить</Button>}
-                    {module.status === 'completed' && <Button size="sm" variant="ghost">Пересмотреть</Button>}
+                    {module.status === 'in-progress' && <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); handleModuleClick(module); }}>Продолжить</Button>}
+                    {module.status === 'completed' && <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleModuleClick(module); }}>Пересмотреть</Button>}
                   </div>
                 </div>
               ))}
@@ -146,14 +236,20 @@ export function CourseDetail({ courseId, onBack }: { courseId: string, onBack: (
               <div className="space-y-2">
                 <span className="text-gray-400 text-sm font-medium uppercase tracking-wider">Ваш прогресс</span>
                 <div className="flex items-end justify-between">
-                  <span className="text-3xl font-bold">{course.progress || 0}%</span>
-                  <span className="text-gray-400 text-sm mb-1">2/12 завершено</span>
+                  <span className="text-3xl font-bold">{enrolled ? Math.round(progress.percentage) : 0}%</span>
+                  <span className="text-gray-400 text-sm mb-1">
+                    {enrolled ? `${progress.completed}/${progress.total} завершено` : '—'}
+                  </span>
                 </div>
-                <Progress value={course.progress || 0} className="h-2 bg-gray-700 [&>div]:bg-blue-500" />
+                <Progress value={enrolled ? progress.percentage : 0} className="h-2 bg-gray-700 [&>div]:bg-blue-500" />
               </div>
-              
-              <Button className="w-full h-12 text-lg font-medium bg-blue-600 hover:bg-blue-500 text-white border-none">
-                {course.progress ? 'Продолжить' : 'Записаться'}
+
+              <Button
+                onClick={enrolled ? undefined : handleEnroll}
+                disabled={enrolling}
+                className="w-full h-12 text-lg font-medium bg-blue-600 hover:bg-blue-500 text-white border-none"
+              >
+                {enrolling ? 'Записываемся...' : enrolled ? 'Вы записаны' : 'Записаться'}
               </Button>
               
               <div className="pt-4 border-t border-gray-800 space-y-3">

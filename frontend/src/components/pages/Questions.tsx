@@ -47,6 +47,7 @@ export function Questions({ onSelectQuestion }: QuestionsProps) {
   const [selectedTechnology, setSelectedTechnology] = useState<string>('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState<'All' | QuestionDifficulty>('All');
   const [selectedCompany, setSelectedCompany] = useState<string>('All');
+  const [hideSolved, setHideSolved] = useState(false);
   const [offset, setOffset] = useState(0);
 
   // Debounce search input
@@ -122,9 +123,13 @@ export function Questions({ onSelectQuestion }: QuestionsProps) {
     setSelectedTechnology('All');
     setSelectedDifficulty('All');
     setSelectedCompany('All');
+    setHideSolved(false);
   };
 
-  const hasActiveFilters = debouncedSearch || selectedTechnology !== 'All' || selectedDifficulty !== 'All' || selectedCompany !== 'All';
+  const hasActiveFilters = debouncedSearch || selectedTechnology !== 'All' || selectedDifficulty !== 'All' || selectedCompany !== 'All' || hideSolved;
+
+  // Client-side filter for solved questions
+  const filteredItems = hideSolved ? items.filter(q => !q.solved) : items;
 
   return (
     <div className="space-y-8">
@@ -206,12 +211,26 @@ export function Questions({ onSelectQuestion }: QuestionsProps) {
             </Button>
           </div>
         </div>
+
+        {/* Hide Solved Checkbox */}
+        <div className="flex items-center gap-2 mt-2">
+          <input
+            type="checkbox"
+            id="hideSolved"
+            checked={hideSolved}
+            onChange={(e) => setHideSolved(e.target.checked)}
+            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+          />
+          <label htmlFor="hideSolved" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+            Скрыть решённые вопросы
+          </label>
+        </div>
       </div>
 
       {/* Results Count */}
       {!loading && (
         <div className="text-sm text-gray-500">
-          Показано {items.length} из {total} вопросов
+          Показано {filteredItems.length} из {total} вопросов
         </div>
       )}
 
@@ -233,7 +252,7 @@ export function Questions({ onSelectQuestion }: QuestionsProps) {
       )}
 
       {/* Empty State */}
-      {!loading && !error && items.length === 0 && (
+      {!loading && !error && filteredItems.length === 0 && (
         <div className="text-center py-12">
           <p className="text-gray-500 mb-4">Вопросы не найдены</p>
           {hasActiveFilters && (
@@ -245,9 +264,9 @@ export function Questions({ onSelectQuestion }: QuestionsProps) {
       )}
 
       {/* Questions List */}
-      {!loading && items.length > 0 && (
+      {!loading && filteredItems.length > 0 && (
         <div className="space-y-4">
-          {items.map((q, idx) => (
+          {filteredItems.map((q, idx) => (
             <motion.div
               key={q.id}
               initial={{ opacity: 0, y: 10 }}

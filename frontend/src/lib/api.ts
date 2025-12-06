@@ -100,6 +100,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (options.auth && tokens?.accessToken) {
     headers.Authorization = `Bearer ${tokens.accessToken}`;
+    console.log('[API] Sending authenticated request to:', path);
+    console.log('[API] Token:', tokens.accessToken.substring(0, 20) + '...');
+  } else if (options.auth) {
+    console.warn('[API] Auth requested but no token found for:', path);
+  } else {
+    console.log('[API] Sending unauthenticated request to:', path);
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -155,6 +161,99 @@ export function getCourseModules(id: string | number) {
   return request<{ items: any[] }>(`/courses/${id}/modules`);
 }
 
+// Module and progress types
+export type ModuleQuestionItem = {
+  questionId: number;
+  title: string;
+  order: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  isAnswered?: boolean;
+  isCorrect?: boolean;
+};
+
+export type ModuleProgress = {
+  totalQuestions: number;
+  answeredQuestions: number;
+  correctAnswers: number;
+  correctnessPct?: number;
+};
+
+export type ModuleDetailFull = {
+  id: number;
+  title: string;
+  description: string;
+  content?: string;
+  order: number;
+  questions?: ModuleQuestionItem[];
+  isLocked?: boolean;
+  isCompleted?: boolean;
+  progress?: ModuleProgress;
+};
+
+export type EnrollmentResponse = {
+  courseId: number;
+  enrolled: boolean;
+  enrolledAt?: string;
+};
+
+export type CourseProgress = {
+  courseId: number;
+  totalModules: number;
+  completedModules: number;
+  percentage?: number;
+  modules?: Array<{
+    moduleId: number;
+    title: string;
+    completed: boolean;
+    completedAt?: string;
+  }>;
+};
+
+// Module questions
+export function getModuleQuestions(courseId: number | string, moduleId: number | string) {
+  return request<{ items: ModuleQuestionItem[] }>(
+    `/courses/${courseId}/modules/${moduleId}/questions`,
+    { auth: true }
+  );
+}
+
+// Get module with full details including questions and progress
+export function getModuleByIdFull(courseId: number | string, moduleId: number | string) {
+  return request<ModuleDetailFull>(
+    `/courses/${courseId}/modules/${moduleId}`,
+    { auth: true }
+  );
+}
+
+// Course enrollment
+export function enrollInCourse(courseId: number | string) {
+  return request<EnrollmentResponse>(
+    `/courses/${courseId}/enroll`,
+    { method: 'POST', auth: true }
+  );
+}
+
+// Course progress
+export function getCourseProgress(courseId: number | string) {
+  return request<CourseProgress>(
+    `/courses/${courseId}/progress`,
+    { auth: true }
+  );
+}
+
+// Complete module
+export function completeModule(courseId: number | string, moduleId: number | string) {
+  return request<{
+    courseId: number;
+    moduleId: number;
+    completed: boolean;
+    completedAt?: string;
+  }>(`/courses/${courseId}/modules/${moduleId}/complete`, {
+    method: 'POST',
+    auth: true,
+  });
+}
+
 export function listMentors() {
   return request<{ items: any[]; total?: number }>('/mentors');
 }
@@ -172,14 +271,23 @@ export function listQuestions(filters?: import('./data').QuestionFilters) {
   const query = params.toString();
   const path = query ? `/questions?${query}` : '/questions';
 
-  return request<import('./data').QuestionListResponse>(path);
+  // Отправляем токен если пользователь авторизован, чтобы получить поле solved
+  const tokens = getStoredTokens();
+  return request<import('./data').QuestionListResponse>(path, {
+    auth: !!tokens?.accessToken
+  });
 }
 
 export function getQuestionById(id: number | string) {
   return request<import('./data').QuestionDetail>(`/questions/${id}`);
 }
 
-export function submitQuestionAnswer(id: number | string, userAnswer: string) {
+export function submitQuestionAnswer(
+  id: number | string,
+  userAnswer: string,
+  courseId?: number,
+  moduleId?: number
+) {
   return request<{
     isCorrect: boolean;
     correctAnswer: string;
@@ -187,7 +295,7 @@ export function submitQuestionAnswer(id: number | string, userAnswer: string) {
     alreadySolved?: boolean;
   }>(`/questions/${id}/submit`, {
     method: 'POST',
-    body: JSON.stringify({ userAnswer }),
+    body: JSON.stringify({ userAnswer, courseId, moduleId }),
     auth: true,
   });
 }

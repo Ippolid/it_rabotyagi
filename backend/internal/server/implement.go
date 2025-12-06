@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -660,8 +661,19 @@ func (s *ServerImplementation) SubmitQuestionAnswer(ctx echo.Context, id int) er
 		})
 	}
 
+	// Проверяем, является ли вопрос открытым (без вариантов ответа)
+	isOpenEnded := len(question.Options) == 0 || question.CorrectAnswer == ""
+
 	// Проверяем правильность ответа
-	isCorrect := req.UserAnswer == question.CorrectAnswer
+	var isCorrect bool
+	if isOpenEnded {
+		// Для открытых вопросов всегда помечаем как "изученный" (correct)
+		// так как нет объективного способа проверить свободный текст
+		isCorrect = true
+	} else {
+		// Для вопросов с вариантами проверяем ответ
+		isCorrect = req.UserAnswer == question.CorrectAnswer
+	}
 
 	// Проверяем, был ли вопрос уже решен
 	_, alreadySolved, err := s.statisticsRepo.CheckIfQuestionSolved(ctx.Request().Context(), userID, id)
@@ -672,11 +684,30 @@ func (s *ServerImplementation) SubmitQuestionAnswer(ctx echo.Context, id int) er
 
 	// Сохраняем попытку (предполагаем, что пользователь потратил 30 секунд)
 	timeSpent := 30 * time.Second
-	if err := s.statisticsRepo.RecordQuestionAttempt(ctx.Request().Context(), userID, id, isCorrect, timeSpent); err != nil {
+
+	// Получаем courseId и moduleId из запроса (если указаны)
+	var courseIDPtr, moduleIDPtr *int
+	if req.CourseId != nil {
+		courseIDPtr = req.CourseId
+	}
+	if req.ModuleId != nil {
+		moduleIDPtr = req.ModuleId
+	}
+
+	if err := s.statisticsRepo.RecordQuestionAttempt(ctx.Request().Context(), userID, id, courseIDPtr, moduleIDPtr, isCorrect, timeSpent, req.UserAnswer); err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
 			Message: "Failed to record answer",
 			Code:    strPtr("RECORD_ANSWER_ERROR"),
 		})
+	}
+
+	// Если вопрос в контексте модуля, проверяем, завершен ли модуль
+	if moduleIDPtr != nil && courseIDPtr != nil {
+		isComplete, err := s.courseRepo.IsModuleComplete(ctx.Request().Context(), userID, *moduleIDPtr)
+		if err == nil && isComplete {
+			// Автоматически помечаем модуль как завершенный
+			s.courseRepo.CompleteModule(ctx.Request().Context(), userID, *courseIDPtr, *moduleIDPtr)
+		}
 	}
 
 	// Формируем ответ
@@ -915,20 +946,80 @@ func (s *ServerImplementation) CreateModule(ctx echo.Context, id int) error {
 // GetModuleById возвращает модуль
 // (GET /courses/{id}/modules/{moduleId})
 func (s *ServerImplementation) GetModuleById(ctx echo.Context, id int, moduleId int) error {
-	module, err := s.courseRepo.GetModule(ctx.Request().Context(), id, moduleId)
+	// Проверяем аутентификацию
+	userID, authenticated := GetUserID(ctx)
+
+	// Логирование для отладки
+	authHeader := ctx.Request().Header.Get("Authorization")
+	log.Printf("[GetModuleById] courseId=%d, moduleId=%d, authenticated=%v, userID=%d, authHeader present=%v",
+		id, moduleId, authenticated, userID, authHeader != "")
+	if authHeader != "" {
+		log.Printf("[GetModuleById] Authorization header: %s...", authHeader[:min(len(authHeader), 30)])
+	}
+
+	if !authenticated {
+		// Если не аутентифицирован, возвращаем базовую информацию
+		log.Printf("[GetModuleById] Returning basic module info (no questions)")
+		module, err := s.courseRepo.GetModule(ctx.Request().Context(), id, moduleId)
+		if err != nil {
+			return ctx.JSON(http.StatusNotFound, openapi.ErrorResponse{
+				Message: "Module not found",
+				Code:    strPtr("MODULE_NOT_FOUND"),
+			})
+		}
+
+		resp := openapi.ModuleDetail{
+			Id:          module.ID,
+			Title:       module.Title,
+			Description: module.Description,
+			Content:     module.Content,
+			Order:       module.Order,
+		}
+		return ctx.JSON(http.StatusOK, resp)
+	}
+
+	// Если аутентифицирован, возвращаем с прогрессом
+	log.Printf("[GetModuleById] User authenticated, loading module with progress and questions")
+	moduleWithProgress, err := s.courseRepo.GetModuleWithProgress(ctx.Request().Context(), userID, id, moduleId)
 	if err != nil {
+		log.Printf("[GetModuleById] Error loading module with progress: %v", err)
 		return ctx.JSON(http.StatusNotFound, openapi.ErrorResponse{
 			Message: "Module not found",
 			Code:    strPtr("MODULE_NOT_FOUND"),
 		})
 	}
 
+	// Преобразуем вопросы
+	log.Printf("[GetModuleById] Module loaded, questions count: %d", len(moduleWithProgress.Questions))
+	questions := make([]openapi.ModuleQuestionItem, 0, len(moduleWithProgress.Questions))
+	for _, q := range moduleWithProgress.Questions {
+		difficulty := openapi.ModuleQuestionItemDifficulty(q.Difficulty)
+		questions = append(questions, openapi.ModuleQuestionItem{
+			QuestionId: q.QuestionID,
+			Title:      q.QuestionTitle,
+			Order:      q.QuestionOrder,
+			Difficulty: difficulty,
+			IsAnswered: &q.IsAnswered,
+			IsCorrect:  q.IsCorrect,
+		})
+	}
+
+	// Формируем ответ
 	resp := openapi.ModuleDetail{
-		Id:          module.ID,
-		Title:       module.Title,
-		Description: module.Description,
-		Content:     module.Content,
-		Order:       module.Order,
+		Id:          moduleWithProgress.Module.ID,
+		Title:       moduleWithProgress.Module.Title,
+		Description: moduleWithProgress.Module.Description,
+		Content:     moduleWithProgress.Module.Content,
+		Order:       moduleWithProgress.Module.Order,
+		Questions:   &questions,
+		IsLocked:    &moduleWithProgress.IsLocked,
+		IsCompleted: &moduleWithProgress.IsCompleted,
+		Progress: &openapi.ModuleProgressStats{
+			TotalQuestions:    moduleWithProgress.Progress.TotalQuestions,
+			AnsweredQuestions: moduleWithProgress.Progress.AnsweredQuestions,
+			CorrectAnswers:    moduleWithProgress.Progress.CorrectAnswers,
+			CorrectnessPct:    &moduleWithProgress.Progress.CorrectnessPct,
+		},
 	}
 
 	return ctx.JSON(http.StatusOK, resp)
@@ -1046,6 +1137,21 @@ func (s *ServerImplementation) GetCourseProgress(ctx echo.Context, id int) error
 		})
 	}
 
+	// Check if user is enrolled in the course
+	enrolled, err := s.courseRepo.IsUserEnrolled(ctx.Request().Context(), userID, id)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to check enrollment",
+			Code:    strPtr("ENROLLMENT_CHECK_ERROR"),
+		})
+	}
+	if !enrolled {
+		return ctx.JSON(http.StatusForbidden, openapi.ErrorResponse{
+			Message: "User is not enrolled in this course",
+			Code:    strPtr("NOT_ENROLLED"),
+		})
+	}
+
 	total, completed, modules, err := s.courseRepo.GetCourseProgress(ctx.Request().Context(), userID, id)
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
@@ -1103,6 +1209,21 @@ func (s *ServerImplementation) CompleteModule(ctx echo.Context, courseId int, mo
 		})
 	}
 
+	// Проверяем, все ли вопросы в модуле отвечены
+	isComplete, err := s.courseRepo.IsModuleComplete(ctx.Request().Context(), userID, moduleId)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to check module completion status",
+			Code:    strPtr("MODULE_CHECK_ERROR"),
+		})
+	}
+	if !isComplete {
+		return ctx.JSON(http.StatusBadRequest, openapi.ErrorResponse{
+			Message: "All questions in module must be answered before completion",
+			Code:    strPtr("MODULE_INCOMPLETE"),
+		})
+	}
+
 	completedAt, err := s.courseRepo.CompleteModule(ctx.Request().Context(), userID, courseId, moduleId)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -1122,6 +1243,60 @@ func (s *ServerImplementation) CompleteModule(ctx echo.Context, courseId int, mo
 		ModuleId:    moduleId,
 		Completed:   true,
 		CompletedAt: completedAt,
+	})
+}
+
+// ListModuleQuestions возвращает список вопросов модуля
+// (GET /courses/{id}/modules/{moduleId}/questions)
+func (s *ServerImplementation) ListModuleQuestions(ctx echo.Context, id int, moduleId int) error {
+	userID, authenticated := GetUserID(ctx)
+	if !authenticated {
+		return ctx.JSON(http.StatusUnauthorized, openapi.ErrorResponse{
+			Message: "Unauthorized",
+			Code:    strPtr("UNAUTHORIZED"),
+		})
+	}
+
+	// Проверяем доступ к модулю
+	canAccess, err := s.courseRepo.CanAccessModule(ctx.Request().Context(), userID, id, moduleId)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to check module access",
+			Code:    strPtr("MODULE_ACCESS_CHECK_ERROR"),
+		})
+	}
+	if !canAccess {
+		return ctx.JSON(http.StatusForbidden, openapi.ErrorResponse{
+			Message: "Module is locked. Complete previous module first",
+			Code:    strPtr("MODULE_LOCKED"),
+		})
+	}
+
+	// Получаем вопросы
+	questions, err := s.courseRepo.GetModuleQuestions(ctx.Request().Context(), moduleId, &userID)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, openapi.ErrorResponse{
+			Message: "Failed to fetch module questions",
+			Code:    strPtr("QUESTIONS_FETCH_ERROR"),
+		})
+	}
+
+	// Преобразуем в API формат
+	items := make([]openapi.ModuleQuestionItem, 0, len(questions))
+	for _, q := range questions {
+		difficulty := openapi.ModuleQuestionItemDifficulty(q.Difficulty)
+		items = append(items, openapi.ModuleQuestionItem{
+			QuestionId: q.QuestionID,
+			Title:      q.QuestionTitle,
+			Order:      q.QuestionOrder,
+			Difficulty: difficulty,
+			IsAnswered: &q.IsAnswered,
+			IsCorrect:  q.IsCorrect,
+		})
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]interface{}{
+		"items": items,
 	})
 }
 

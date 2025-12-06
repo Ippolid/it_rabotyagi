@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent } from '../ui/card';
 import {
-  ArrowLeft, Share2, Star, CheckCircle, XCircle,
+  ArrowLeft, CheckCircle, XCircle,
   Building2, Laptop
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -15,6 +15,8 @@ interface QuestionDetailProps {
   questionId: string;
   onBack: () => void;
   onSelectQuestion?: (id: string) => void;
+  courseId?: string;
+  moduleId?: string;
 }
 
 const difficultyConfig = {
@@ -32,7 +34,7 @@ const difficultyConfig = {
   }
 };
 
-export function QuestionDetail({ questionId, onBack, onSelectQuestion }: QuestionDetailProps) {
+export function QuestionDetail({ questionId, onBack, onSelectQuestion, courseId, moduleId }: QuestionDetailProps) {
   const [question, setQuestion] = useState<QuestionDetailType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,11 +113,20 @@ export function QuestionDetail({ questionId, onBack, onSelectQuestion }: Questio
   }, [question]);
 
   const handleSubmit = async () => {
-    if (!selectedAnswer || !questionId) return;
+    // Для открытых вопросов не требуется выбранный ответ
+    if (!question?.isOpenEnded && !selectedAnswer) return;
+    if (!questionId) return;
 
     setIsSubmitting(true);
     try {
-      const result = await submitQuestionAnswer(questionId, selectedAnswer);
+      // Для открытых вопросов отправляем пустую строку
+      const answer = question?.isOpenEnded ? '' : selectedAnswer || '';
+      const result = await submitQuestionAnswer(
+        questionId,
+        answer,
+        courseId ? Number(courseId) : undefined,
+        moduleId ? Number(moduleId) : undefined
+      );
       setSubmitResult(result);
       setIsSubmitted(true);
 
@@ -177,9 +188,17 @@ export function QuestionDetail({ questionId, onBack, onSelectQuestion }: Questio
             className="text-gray-500 hover:text-gray-900 -ml-2"
           >
             <ArrowLeft className="w-5 h-5 mr-1" />
-            Назад
+            {courseId && moduleId ? 'К модулю' : 'Назад'}
           </Button>
           <div className="h-4 w-[1px] bg-gray-300 mx-1" />
+          {courseId && moduleId && (
+            <>
+              <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-medium">
+                Модуль курса
+              </span>
+              <div className="h-4 w-[1px] bg-gray-300 mx-1" />
+            </>
+          )}
           <span className="text-sm font-medium text-gray-500 truncate flex-1">
             {question.title}
           </span>
@@ -501,49 +520,45 @@ export function QuestionDetail({ questionId, onBack, onSelectQuestion }: Questio
 
       {/* Fixed Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 md:px-8 py-4 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-gray-400 hover:text-yellow-500 hover:bg-yellow-50"
-            >
-              <Star className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full text-gray-400 hover:text-gray-900"
-            >
-              <Share2 className="w-5 h-5" />
-            </Button>
-          </div>
+        <div className="max-w-7xl mx-auto flex items-center justify-end gap-4">
 
-          {!question.isOpenEnded && !isSubmitted && (
-            <Button
-              onClick={handleSubmit}
-              disabled={!selectedAnswer || isSubmitting}
-              className="flex-1 md:flex-none md:min-w-[200px] bg-[#007AFF] hover:bg-[#0063cc] text-white font-semibold h-12 rounded-xl shadow-lg shadow-blue-500/20 transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Отправка...' : 'Решить'}
-            </Button>
-          )}
-
-          {question.isOpenEnded && !showAnswer && (
-            <Button
-              onClick={() => setShowAnswer(true)}
-              className="flex-1 md:flex-none md:min-w-[200px] bg-[#007AFF] hover:bg-[#0063cc] text-white font-semibold h-12 rounded-xl shadow-lg shadow-blue-500/20 transition-transform active:scale-[0.98]"
-            >
-              Показать ответ
-            </Button>
-          )}
-
-          {(isSubmitted || (question.isOpenEnded && showAnswer)) && (
+          {/* Показываем только одну кнопку в зависимости от состояния */}
+          {isSubmitted ? (
+            // После отправки ответа показываем "Следующий вопрос" или "К модулю"
             <Button
               onClick={onBack}
               className="flex-1 md:flex-none md:min-w-[200px] bg-gray-900 hover:bg-gray-800 text-white font-semibold h-12 rounded-xl shadow-lg transition-transform active:scale-[0.98]"
             >
-              Следующий вопрос
+              {courseId && moduleId ? 'К модулю' : 'Следующий вопрос'}
+            </Button>
+          ) : question.isOpenEnded ? (
+            // Для открытых вопросов
+            showAnswer ? (
+              // Если ответ показан - кнопка "Изучил вопрос"
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="flex-1 md:flex-none md:min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-semibold h-12 rounded-xl shadow-lg shadow-green-500/20 transition-transform active:scale-[0.98] disabled:opacity-50"
+              >
+                {isSubmitting ? 'Сохранение...' : 'Изучил вопрос'}
+              </Button>
+            ) : (
+              // Если ответ не показан - кнопка "Показать ответ"
+              <Button
+                onClick={() => setShowAnswer(true)}
+                className="flex-1 md:flex-none md:min-w-[200px] bg-[#007AFF] hover:bg-[#0063cc] text-white font-semibold h-12 rounded-xl shadow-lg shadow-blue-500/20 transition-transform active:scale-[0.98]"
+              >
+                Показать ответ
+              </Button>
+            )
+          ) : (
+            // Для вопросов с вариантами ответов - кнопка "Решить"
+            <Button
+              onClick={handleSubmit}
+              disabled={!selectedAnswer || isSubmitting}
+              className="flex-1 md:flex-none md:min-w-[200px] bg-[#007AFF] hover:bg-[#0063cc] text-white font-semibold h-12 rounded-xl shadow-lg shadow-blue-500/20 transition-transform active:scale-[0.98] disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+            >
+              {isSubmitting ? 'Отправка...' : 'Решить'}
             </Button>
           )}
         </div>

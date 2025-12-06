@@ -58,6 +58,9 @@ type ServerInterface interface {
 	// Обновить модуль
 	// (PATCH /courses/{id}/modules/{moduleId})
 	UpdateModule(ctx echo.Context, id int, moduleId int) error
+	// Получить вопросы модуля
+	// (GET /courses/{id}/modules/{moduleId}/questions)
+	ListModuleQuestions(ctx echo.Context, id int, moduleId int) error
 	// Получить прогресс по курсу
 	// (GET /courses/{id}/progress)
 	GetCourseProgress(ctx echo.Context, id int) error
@@ -379,6 +382,32 @@ func (w *ServerInterfaceWrapper) UpdateModule(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.UpdateModule(ctx, id, moduleId)
+	return err
+}
+
+// ListModuleQuestions converts echo context to params.
+func (w *ServerInterfaceWrapper) ListModuleQuestions(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// ------------- Path parameter "moduleId" -------------
+	var moduleId int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "moduleId", ctx.Param("moduleId"), &moduleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter moduleId: %s", err))
+	}
+
+	ctx.Set(BearerAuthScopes, []string{})
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListModuleQuestions(ctx, id, moduleId)
 	return err
 }
 
@@ -711,6 +740,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.DELETE(baseURL+"/courses/:id/modules/:moduleId", wrapper.DeleteModule)
 	router.GET(baseURL+"/courses/:id/modules/:moduleId", wrapper.GetModuleById)
 	router.PATCH(baseURL+"/courses/:id/modules/:moduleId", wrapper.UpdateModule)
+	router.GET(baseURL+"/courses/:id/modules/:moduleId/questions", wrapper.ListModuleQuestions)
 	router.GET(baseURL+"/courses/:id/progress", wrapper.GetCourseProgress)
 	router.GET(baseURL+"/mentors", wrapper.ListMentors)
 	router.GET(baseURL+"/mentors/:id", wrapper.GetMentorById)

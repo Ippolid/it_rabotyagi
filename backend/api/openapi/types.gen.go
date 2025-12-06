@@ -13,6 +13,13 @@ const (
 	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
+// Defines values for ModuleQuestionItemDifficulty.
+const (
+	ModuleQuestionItemDifficultyEasy   ModuleQuestionItemDifficulty = "easy"
+	ModuleQuestionItemDifficultyHard   ModuleQuestionItemDifficulty = "hard"
+	ModuleQuestionItemDifficultyMedium ModuleQuestionItemDifficulty = "medium"
+)
+
 // Defines values for QuestionCreateRequestDifficulty.
 const (
 	QuestionCreateRequestDifficultyEasy   QuestionCreateRequestDifficulty = "easy"
@@ -43,9 +50,9 @@ const (
 
 // Defines values for ListQuestionsParamsDifficulty.
 const (
-	Easy   ListQuestionsParamsDifficulty = "easy"
-	Hard   ListQuestionsParamsDifficulty = "hard"
-	Medium ListQuestionsParamsDifficulty = "medium"
+	ListQuestionsParamsDifficultyEasy   ListQuestionsParamsDifficulty = "easy"
+	ListQuestionsParamsDifficultyHard   ListQuestionsParamsDifficulty = "hard"
+	ListQuestionsParamsDifficultyMedium ListQuestionsParamsDifficulty = "medium"
 )
 
 // AuthLoginRequest defines model for AuthLoginRequest.
@@ -203,8 +210,18 @@ type ModuleDetail struct {
 	Content     *string `json:"content,omitempty"`
 	Description string  `json:"description"`
 	Id          int     `json:"id"`
-	Order       int     `json:"order"`
-	Title       string  `json:"title"`
+
+	// IsCompleted Завершен ли модуль пользователем
+	IsCompleted *bool `json:"isCompleted,omitempty"`
+
+	// IsLocked Заблокирован ли модуль (не завершен предыдущий)
+	IsLocked *bool                `json:"isLocked,omitempty"`
+	Order    int                  `json:"order"`
+	Progress *ModuleProgressStats `json:"progress,omitempty"`
+
+	// Questions Список вопросов модуля
+	Questions *[]ModuleQuestionItem `json:"questions,omitempty"`
+	Title     string                `json:"title"`
 }
 
 // ModuleList defines model for ModuleList.
@@ -219,6 +236,45 @@ type ModuleProgressItem struct {
 	ModuleId    int        `json:"moduleId"`
 	Title       string     `json:"title"`
 }
+
+// ModuleProgressStats defines model for ModuleProgressStats.
+type ModuleProgressStats struct {
+	// AnsweredQuestions Количество отвеченных вопросов
+	AnsweredQuestions int `json:"answeredQuestions"`
+
+	// CorrectAnswers Количество правильных ответов
+	CorrectAnswers int `json:"correctAnswers"`
+
+	// CorrectnessPct Процент правильных ответов
+	CorrectnessPct *float32 `json:"correctnessPct,omitempty"`
+
+	// TotalQuestions Всего вопросов в модуле
+	TotalQuestions int `json:"totalQuestions"`
+}
+
+// ModuleQuestionItem defines model for ModuleQuestionItem.
+type ModuleQuestionItem struct {
+	// Difficulty Сложность вопроса
+	Difficulty ModuleQuestionItemDifficulty `json:"difficulty"`
+
+	// IsAnswered Ответил ли пользователь на вопрос
+	IsAnswered *bool `json:"isAnswered,omitempty"`
+
+	// IsCorrect Правильно ли ответил пользователь
+	IsCorrect *bool `json:"isCorrect,omitempty"`
+
+	// Order Порядковый номер в модуле
+	Order int `json:"order"`
+
+	// QuestionId ID вопроса
+	QuestionId int `json:"questionId"`
+
+	// Title Название вопроса
+	Title string `json:"title"`
+}
+
+// ModuleQuestionItemDifficulty Сложность вопроса
+type ModuleQuestionItemDifficulty string
 
 // ModuleUpdateRequest defines model for ModuleUpdateRequest.
 type ModuleUpdateRequest struct {
@@ -338,6 +394,12 @@ type QuestionStatisticsSummary struct {
 
 // QuestionSubmitRequest defines model for QuestionSubmitRequest.
 type QuestionSubmitRequest struct {
+	// CourseId ID курса (если ответ в контексте курса)
+	CourseId *int `json:"courseId,omitempty"`
+
+	// ModuleId ID модуля (если ответ в контексте модуля)
+	ModuleId *int `json:"moduleId,omitempty"`
+
 	// UserAnswer Ответ пользователя
 	UserAnswer string `json:"userAnswer"`
 }

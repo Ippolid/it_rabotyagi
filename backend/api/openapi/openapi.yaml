@@ -768,6 +768,142 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /courses/{id}/modules/{moduleId}/questions:
+    get:
+      tags: [Courses]
+      summary: Получить вопросы модуля
+      operationId: listModuleQuestions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID курса
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID модуля
+      responses:
+        '200':
+          description: Список вопросов модуля
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModuleQuestionItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Модуль заблокирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Courses]
+      summary: Добавить существующий вопрос в модуль
+      operationId: addQuestionToModule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID курса
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID модуля
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionId, order]
+              properties:
+                questionId:
+                  type: integer
+                  description: ID существующего вопроса
+                order:
+                  type: integer
+                  description: Порядок вопроса в модуле
+      responses:
+        '201':
+          description: Вопрос добавлен в модуль
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /courses/{id}/modules/{moduleId}/questions/{questionId}:
+    delete:
+      tags: [Courses]
+      summary: Удалить вопрос из модуля
+      operationId: removeQuestionFromModule
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID курса
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID модуля
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID вопроса
+      responses:
+        '200':
+          description: Вопрос удален из модуля
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /courses/{courseId}/modules/{moduleId}/complete:
     post:
       tags: [Progress]
@@ -882,6 +1018,12 @@ components:
         userAnswer:
           type: string
           description: Ответ пользователя
+        courseId:
+          type: integer
+          description: ID курса (если ответ в контексте курса)
+        moduleId:
+          type: integer
+          description: ID модуля (если ответ в контексте модуля)
     QuestionSubmitResponse:
       type: object
       required: [isCorrect, correctAnswer]
@@ -1150,6 +1292,20 @@ components:
           description: Текст/markdown модуля
         order:
           type: integer
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleQuestionItem'
+          description: Список вопросов модуля
+        isLocked:
+          type: boolean
+          description: Заблокирован ли модуль (не завершен предыдущий)
+        isCompleted:
+          type: boolean
+          description: Завершен ли модуль пользователем
+        progress:
+          $ref: '#/components/schemas/ModuleProgressStats'
+          description: Статистика прогресса по модулю
     ModuleCreateRequest:
       type: object
       required: [title, description, order]
@@ -1227,6 +1383,46 @@ components:
         completedAt:
           type: string
           format: date-time
+    ModuleQuestionItem:
+      type: object
+      required: [questionId, title, order, difficulty]
+      properties:
+        questionId:
+          type: integer
+          description: ID вопроса
+        title:
+          type: string
+          description: Название вопроса
+        order:
+          type: integer
+          description: Порядковый номер в модуле
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+          description: Сложность вопроса
+        isAnswered:
+          type: boolean
+          description: Ответил ли пользователь на вопрос
+        isCorrect:
+          type: boolean
+          description: Правильно ли ответил пользователь
+    ModuleProgressStats:
+      type: object
+      required: [totalQuestions, answeredQuestions, correctAnswers]
+      properties:
+        totalQuestions:
+          type: integer
+          description: Всего вопросов в модуле
+        answeredQuestions:
+          type: integer
+          description: Количество отвеченных вопросов
+        correctAnswers:
+          type: integer
+          description: Количество правильных ответов
+        correctnessPct:
+          type: number
+          format: float
+          description: Процент правильных ответов
     MentorProfile:
       type: object
       required: [id, userId, specialization]

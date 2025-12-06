@@ -148,6 +148,9 @@ type ClientInterface interface {
 
 	UpdateModule(ctx context.Context, id int, moduleId int, body UpdateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListModuleQuestions request
+	ListModuleQuestions(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetCourseProgress request
 	GetCourseProgress(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -463,6 +466,18 @@ func (c *Client) UpdateModuleWithBody(ctx context.Context, id int, moduleId int,
 
 func (c *Client) UpdateModule(ctx context.Context, id int, moduleId int, body UpdateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateModuleRequest(c.Server, id, moduleId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListModuleQuestions(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListModuleQuestionsRequest(c.Server, id, moduleId)
 	if err != nil {
 		return nil, err
 	}
@@ -1369,6 +1384,47 @@ func NewUpdateModuleRequestWithBody(server string, id int, moduleId int, content
 	return req, nil
 }
 
+// NewListModuleQuestionsRequest generates requests for ListModuleQuestions
+func NewListModuleQuestionsRequest(server string, id int, moduleId int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "id", runtime.ParamLocationPath, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "moduleId", runtime.ParamLocationPath, moduleId)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/courses/%s/modules/%s/questions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetCourseProgressRequest generates requests for GetCourseProgress
 func NewGetCourseProgressRequest(server string, id int) (*http.Request, error) {
 	var err error
@@ -2201,6 +2257,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdateModuleWithResponse(ctx context.Context, id int, moduleId int, body UpdateModuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateModuleResponse, error)
 
+	// ListModuleQuestionsWithResponse request
+	ListModuleQuestionsWithResponse(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*ListModuleQuestionsResponse, error)
+
 	// GetCourseProgressWithResponse request
 	GetCourseProgressWithResponse(ctx context.Context, id int, reqEditors ...RequestEditorFn) (*GetCourseProgressResponse, error)
 
@@ -2612,6 +2671,33 @@ func (r UpdateModuleResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateModuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListModuleQuestionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *struct {
+		Items []ModuleQuestionItem `json:"items"`
+	}
+	JSON401 *Unauthorized
+	JSON403 *ErrorResponse
+	JSON404 *NotFound
+}
+
+// Status returns HTTPResponse.Status
+func (r ListModuleQuestionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListModuleQuestionsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3186,6 +3272,15 @@ func (c *ClientWithResponses) UpdateModuleWithResponse(ctx context.Context, id i
 		return nil, err
 	}
 	return ParseUpdateModuleResponse(rsp)
+}
+
+// ListModuleQuestionsWithResponse request returning *ListModuleQuestionsResponse
+func (c *ClientWithResponses) ListModuleQuestionsWithResponse(ctx context.Context, id int, moduleId int, reqEditors ...RequestEditorFn) (*ListModuleQuestionsResponse, error) {
+	rsp, err := c.ListModuleQuestions(ctx, id, moduleId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListModuleQuestionsResponse(rsp)
 }
 
 // GetCourseProgressWithResponse request returning *GetCourseProgressResponse
@@ -3939,6 +4034,55 @@ func ParseUpdateModuleResponse(rsp *http.Response) (*UpdateModuleResponse, error
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListModuleQuestionsResponse parses an HTTP response from a ListModuleQuestionsWithResponse call
+func ParseListModuleQuestionsResponse(rsp *http.Response) (*ListModuleQuestionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListModuleQuestionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Items []ModuleQuestionItem `json:"items"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest NotFound

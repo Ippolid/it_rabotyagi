@@ -219,7 +219,7 @@ func (r *StatisticsRepository) GetQuestionStatisticsByCourse(ctx context.Context
 	return result, nil
 }
 // RecordQuestionAttempt сохраняет попытку ответа на вопрос
-func (r *StatisticsRepository) RecordQuestionAttempt(ctx context.Context, userID, questionID int, isCorrect bool, timeSpent time.Duration) error {
+func (r *StatisticsRepository) RecordQuestionAttempt(ctx context.Context, userID, questionID int, courseID, moduleID *int, isCorrect bool, timeSpent time.Duration, lastAnswer string) error {
 	// Проверяем, была ли уже попытка для этого вопроса
 	var exists bool
 	checkQuery := `SELECT EXISTS(SELECT 1 FROM user_question_progress WHERE user_id = $1 AND question_id = $2)`
@@ -235,15 +235,18 @@ func (r *StatisticsRepository) RecordQuestionAttempt(ctx context.Context, userID
 			SET attempts = attempts + 1,
 			    is_correct = $3,
 			    time_spent = $4,
+			    last_answer = $5,
+			    course_id = $6,
+			    module_id = $7,
 			    updated_at = NOW()
 			WHERE user_id = $1 AND question_id = $2`
-		_, err = r.db.Pool.Exec(ctx, query, userID, questionID, isCorrect, timeSpent)
+		_, err = r.db.Pool.Exec(ctx, query, userID, questionID, isCorrect, timeSpent, lastAnswer, courseID, moduleID)
 	} else {
-		// Создаем новую запись (без course_id для вопросов вне курсов)
+		// Создаем новую запись с course_id и module_id если они указаны
 		query := `
-			INSERT INTO user_question_progress (user_id, question_id, is_correct, attempts, time_spent)
-			VALUES ($1, $2, $3, 1, $4)`
-		_, err = r.db.Pool.Exec(ctx, query, userID, questionID, isCorrect, timeSpent)
+			INSERT INTO user_question_progress (user_id, question_id, course_id, module_id, is_correct, attempts, time_spent, last_answer)
+			VALUES ($1, $2, $3, $4, $5, 1, $6, $7)`
+		_, err = r.db.Pool.Exec(ctx, query, userID, questionID, courseID, moduleID, isCorrect, timeSpent, lastAnswer)
 	}
 
 	return err

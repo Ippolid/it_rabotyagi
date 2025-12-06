@@ -41,6 +41,30 @@ type ModuleProgress struct {
 	CompletedAt *time.Time
 }
 
+type ModuleQuestion struct {
+	QuestionID    int
+	QuestionTitle string
+	QuestionOrder int
+	Difficulty    string
+	IsAnswered    bool
+	IsCorrect     *bool
+}
+
+type ModuleWithProgress struct {
+	Module      Module
+	Questions   []ModuleQuestion
+	IsLocked    bool
+	IsCompleted bool
+	Progress    ModuleProgressStats
+}
+
+type ModuleProgressStats struct {
+	TotalQuestions    int
+	AnsweredQuestions int
+	CorrectAnswers    int
+	CorrectnessPct    float32
+}
+
 func (r *CourseRepository) ListCourses(ctx context.Context, limit, offset int) ([]Course, int, error) {
 	var total int
 	if err := r.db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM courses").Scan(&total); err != nil {
@@ -227,6 +251,12 @@ func (r *CourseRepository) DeleteModule(ctx context.Context, courseID, moduleID 
 }
 
 func (r *CourseRepository) EnrollUser(ctx context.Context, userID, courseID, totalModules int) (time.Time, error) {
+	tx, err := r.db.Pool.Begin(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer tx.Rollback(ctx)
+
 	// Insert or retain existing enrollment
 	query := `
 INSERT INTO user_course_progress (user_id, course_id, total_modules, completed_modules, module_progress_pct)
@@ -234,9 +264,26 @@ VALUES ($1, $2, $3, 0, 0)
 ON CONFLICT (user_id, course_id) DO UPDATE SET updated_at = now()
 RETURNING started_at`
 	var startedAt time.Time
-	if err := r.db.Pool.QueryRow(ctx, query, userID, courseID, totalModules).Scan(&startedAt); err != nil {
+	if err := tx.QueryRow(ctx, query, userID, courseID, totalModules).Scan(&startedAt); err != nil {
 		return time.Time{}, err
 	}
+
+	// Create user_progress entries for all modules if not already exist
+	initProgressQuery := `
+INSERT INTO user_progress (user_id, course_id, module_id, is_completed)
+SELECT $1, $2, id, false
+FROM modules
+WHERE course_id = $2
+ON CONFLICT (user_id, module_id) DO NOTHING`
+	_, err = tx.Exec(ctx, initProgressQuery, userID, courseID)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return time.Time{}, err
+	}
+
 	return startedAt, nil
 }
 
@@ -341,4 +388,187 @@ DO UPDATE SET total_modules = EXCLUDED.total_modules,
 	}
 
 	return &completedAt, nil
+}
+
+// GetModuleQuestions возвращает список вопросов модуля с прогрессом пользователя
+func (r *CourseRepository) GetModuleQuestions(ctx context.Context, moduleID int, userID *int) ([]ModuleQuestion, error) {
+	var query string
+	var args []any
+
+	if userID != nil {
+		query = `
+SELECT
+    q.id,
+    q.title,
+    mq.question_order,
+    q.difficulty,
+    COALESCE(uqp.question_id IS NOT NULL, false) as is_answered,
+    uqp.is_correct
+FROM module_questions mq
+JOIN questions q ON q.id = mq.question_id
+LEFT JOIN user_question_progress uqp ON uqp.question_id = q.id AND uqp.user_id = $2
+WHERE mq.module_id = $1
+ORDER BY mq.question_order`
+		args = []any{moduleID, *userID}
+	} else {
+		// If no user, just show questions without progress
+		query = `
+SELECT
+    q.id,
+    q.title,
+    mq.question_order,
+    q.difficulty,
+    false as is_answered,
+    NULL::boolean as is_correct
+FROM module_questions mq
+JOIN questions q ON q.id = mq.question_id
+WHERE mq.module_id = $1
+ORDER BY mq.question_order`
+		args = []any{moduleID}
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var questions []ModuleQuestion
+	for rows.Next() {
+		var q ModuleQuestion
+		if err := rows.Scan(&q.QuestionID, &q.QuestionTitle, &q.QuestionOrder, &q.Difficulty, &q.IsAnswered, &q.IsCorrect); err != nil {
+			return nil, err
+		}
+		questions = append(questions, q)
+	}
+	return questions, nil
+}
+
+// AddQuestionToModule добавляет вопрос в модуль
+func (r *CourseRepository) AddQuestionToModule(ctx context.Context, moduleID, questionID, questionOrder int) error {
+	query := `INSERT INTO module_questions (module_id, question_id, question_order) VALUES ($1, $2, $3)`
+	_, err := r.db.Pool.Exec(ctx, query, moduleID, questionID, questionOrder)
+	return err
+}
+
+// RemoveQuestionFromModule удаляет вопрос из модуля
+func (r *CourseRepository) RemoveQuestionFromModule(ctx context.Context, moduleID, questionID int) error {
+	query := `DELETE FROM module_questions WHERE module_id = $1 AND question_id = $2`
+	cmd, err := r.db.Pool.Exec(ctx, query, moduleID, questionID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// CanAccessModule проверяет, может ли пользователь получить доступ к модулю
+// Правило: module_order == 1 OR previous module is_completed == true
+func (r *CourseRepository) CanAccessModule(ctx context.Context, userID, courseID, moduleID int) (bool, error) {
+	// Получаем module_order текущего модуля
+	var moduleOrder int
+	err := r.db.Pool.QueryRow(ctx, `SELECT module_order FROM modules WHERE id = $1 AND course_id = $2`, moduleID, courseID).Scan(&moduleOrder)
+	if err != nil {
+		return false, err
+	}
+
+	// Если это первый модуль, доступ разрешен
+	if moduleOrder == 1 {
+		return true, nil
+	}
+
+	// Проверяем, завершен ли предыдущий модуль
+	query := `
+SELECT COALESCE(up.is_completed, false)
+FROM modules m
+LEFT JOIN user_progress up ON up.module_id = m.id AND up.user_id = $1
+WHERE m.course_id = $2 AND m.module_order = $3`
+
+	var prevCompleted bool
+	err = r.db.Pool.QueryRow(ctx, query, userID, courseID, moduleOrder-1).Scan(&prevCompleted)
+	if err != nil {
+		return false, err
+	}
+
+	return prevCompleted, nil
+}
+
+// IsModuleComplete проверяет, завершен ли модуль (все вопросы отвечены)
+func (r *CourseRepository) IsModuleComplete(ctx context.Context, userID, moduleID int) (bool, error) {
+	query := `
+SELECT
+    COUNT(mq.question_id) as total_questions,
+    COUNT(uqp.question_id) as answered_questions
+FROM module_questions mq
+LEFT JOIN user_question_progress uqp ON uqp.question_id = mq.question_id AND uqp.user_id = $1
+WHERE mq.module_id = $2`
+
+	var total, answered int
+	err := r.db.Pool.QueryRow(ctx, query, userID, moduleID).Scan(&total, &answered)
+	if err != nil {
+		return false, err
+	}
+
+	return total > 0 && total == answered, nil
+}
+
+// GetModuleWithProgress возвращает модуль с полной информацией о прогрессе
+func (r *CourseRepository) GetModuleWithProgress(ctx context.Context, userID, courseID, moduleID int) (*ModuleWithProgress, error) {
+	// Получаем модуль
+	module, err := r.GetModule(ctx, courseID, moduleID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Проверяем доступ
+	canAccess, err := r.CanAccessModule(ctx, userID, courseID, moduleID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем вопросы
+	questions, err := r.GetModuleQuestions(ctx, moduleID, &userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Проверяем завершенность
+	var isCompleted bool
+	err = r.db.Pool.QueryRow(ctx, `SELECT COALESCE(is_completed, false) FROM user_progress WHERE user_id = $1 AND module_id = $2`, userID, moduleID).Scan(&isCompleted)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+
+	// Подсчитываем статистику
+	totalQuestions := len(questions)
+	answeredQuestions := 0
+	correctAnswers := 0
+	for _, q := range questions {
+		if q.IsAnswered {
+			answeredQuestions++
+			if q.IsCorrect != nil && *q.IsCorrect {
+				correctAnswers++
+			}
+		}
+	}
+
+	correctnessPct := float32(0)
+	if answeredQuestions > 0 {
+		correctnessPct = float32(correctAnswers) * 100.0 / float32(answeredQuestions)
+	}
+
+	return &ModuleWithProgress{
+		Module:      *module,
+		Questions:   questions,
+		IsLocked:    !canAccess,
+		IsCompleted: isCompleted,
+		Progress: ModuleProgressStats{
+			TotalQuestions:    totalQuestions,
+			AnsweredQuestions: answeredQuestions,
+			CorrectAnswers:    correctAnswers,
+			CorrectnessPct:    correctnessPct,
+		},
+	}, nil
 }

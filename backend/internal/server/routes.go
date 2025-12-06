@@ -50,14 +50,18 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	api.POST("/auth/register", wrapper.RegisterUser)
 	api.POST("/auth/login", wrapper.LoginUser)
 	api.POST("/auth/refresh", wrapper.RefreshTokens)
-	api.GET("/questions", wrapper.ListQuestions)
-	api.GET("/questions/:id", wrapper.GetQuestionById)
 	api.GET("/courses", wrapper.ListCourses)
 	api.GET("/courses/:id", wrapper.GetCourseById)
 	api.GET("/courses/:id/modules", wrapper.ListModules)
-	api.GET("/courses/:id/modules/:moduleId", wrapper.GetModuleById)
 	api.GET("/mentors", wrapper.ListMentors)
 	api.GET("/mentors/:id", wrapper.GetMentorById)
+
+	// Маршруты с опциональной авторизацией (работают и без токена, но используют его если есть)
+	optionalAuth := api.Group("")
+	optionalAuth.Use(OptionalAuthMiddleware(authService))
+	optionalAuth.GET("/courses/:id/modules/:moduleId", wrapper.GetModuleById)
+	optionalAuth.GET("/questions", wrapper.ListQuestions)
+	optionalAuth.GET("/questions/:id", wrapper.GetQuestionById)
 
 	// Маршруты с обязательной авторизацией
 	authRequired := api.Group("")
@@ -83,6 +87,7 @@ func RegisterRoutes(e *echo.Echo, authService *services.AuthService, repo *repos
 	authRequired.DELETE("/courses/:id/modules/:moduleId", wrapper.DeleteModule)
 	authRequired.POST("/courses/:id/enroll", wrapper.EnrollCourse)
 	authRequired.GET("/courses/:id/progress", wrapper.GetCourseProgress)
+	authRequired.GET("/courses/:id/modules/:moduleId/questions", wrapper.ListModuleQuestions)
 	authRequired.POST("/courses/:courseId/modules/:moduleId/complete", wrapper.CompleteModule)
 
 	return nil
